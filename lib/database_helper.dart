@@ -30,9 +30,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL DEFAULT '',
+        password TEXT NOT NULL DEFAULT ''
       )
     ''');
 
@@ -58,6 +58,17 @@ class DatabaseHelper {
   Future<int> insertUser(Map<String, dynamic> user) async {
     final db = await database;
     return await db.insert('users', user);
+  }
+
+  Future<Map<String, dynamic>?> getUserByUsername(String username) async {
+    final db = await database;
+    final results = await db.query(
+      'users',
+      where: 'username = ?',
+      whereArgs: [username],
+    );
+    if (results.isNotEmpty) return results.first;
+    return null;
   }
 
   Future<Map<String, dynamic>?> getUserByEmail(String email) async {
