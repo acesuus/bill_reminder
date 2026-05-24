@@ -1,16 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Bill {
-  String? id;
+  int? id;
   String title;
   double amount;
   DateTime dueDate;
   bool isPaid;
-  String? frontImageUrl;
-  String? backImageUrl;
+  String? frontImagePath;
+  String? backImagePath;
   bool remindersEnabled;
   bool alarmEnabled;
-  String userId;
+  int userId;
 
   Bill({
     this.id,
@@ -18,45 +16,43 @@ class Bill {
     required this.amount,
     required this.dueDate,
     this.isPaid = false,
-    this.frontImageUrl,
-    this.backImageUrl,
+    this.frontImagePath,
+    this.backImagePath,
     this.remindersEnabled = true,
     this.alarmEnabled = true,
     required this.userId,
   });
 
-  factory Bill.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>?; 
-
-    if (data == null) {
-      throw StateError('Missing data for bill document: ${doc.id}');
-    }
-
+  factory Bill.fromMap(Map<String, dynamic> map) {
     return Bill(
-      id: doc.id,
-      title: data['title'] ?? 'Unknown Bill',
-      amount: (data['amount'] ?? 0).toDouble(),
-      dueDate: (data['dueDate'] as Timestamp).toDate(),
-      isPaid: data['isPaid'] ?? false,
-      frontImageUrl: data['frontImageUrl'],
-      backImageUrl: data['backImageUrl'],
-      remindersEnabled: data['remindersEnabled'] ?? true,
-      alarmEnabled: data['alarmEnabled'] ?? true,
-      userId: data['userId'] ?? '',
+      id: map['id'] as int?,
+      title: map['title'] as String? ?? 'Unknown Bill',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      dueDate: DateTime.parse(map['dueDate'] as String),
+      isPaid: (map['isPaid'] as int?) == 1,
+      frontImagePath: map['frontImagePath'] as String?,
+      backImagePath: map['backImagePath'] as String?,
+      remindersEnabled: (map['remindersEnabled'] as int?) == 1,
+      alarmEnabled: (map['alarmEnabled'] as int?) == 1,
+      userId: map['userId'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'title': title,
       'amount': amount,
-      'dueDate': Timestamp.fromDate(dueDate),
-      'isPaid': isPaid,
-      'frontImageUrl': frontImageUrl,
-      'backImageUrl': backImageUrl,
-      'remindersEnabled': remindersEnabled,
-      'alarmEnabled': alarmEnabled,
+      'dueDate': dueDate.toIso8601String(),
+      'isPaid': isPaid ? 1 : 0,
+      'frontImagePath': frontImagePath,
+      'backImagePath': backImagePath,
+      'remindersEnabled': remindersEnabled ? 1 : 0,
+      'alarmEnabled': alarmEnabled ? 1 : 0,
       'userId': userId,
     };
+    if (id != null) {
+      map['id'] = id;
+    }
+    return map;
   }
 }

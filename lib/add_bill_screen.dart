@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'bill_model.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'auth_service.dart';
+import 'bill_model.dart';
+import 'database_helper.dart';
 import 'notification_service.dart';
 
 class AddBillScreen extends StatefulWidget {
@@ -18,22 +19,22 @@ class _AddBillScreenState extends State<AddBillScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final DatabaseHelper _db = DatabaseHelper();
+  final AuthService _authService = AuthService();
 
   DateTime _selectedDate = DateTime.now();
   bool _remindersEnabled = true;
   bool _alarmEnabled = true;
   bool _isLoading = false;
 
-  // Variables to hold the local files before uploading
   File? _frontImageFile;
   File? _backImageFile;
   final ImagePicker _picker = ImagePicker();
 
-  // Method to pick an image
   Future<void> _pickImage(bool isFront) async {
     final pickedFile = await _picker.pickImage(
-      source: ImageSource.camera, // Can change to ImageSource.gallery if needed
-      imageQuality: 70, // Compresses the image to save Firebase Storage space
+      source: ImageSource.camera,
+      imageQuality: 70,
     );
 
     if (pickedFile != null) {
@@ -47,31 +48,32 @@ class _AddBillScreenState extends State<AddBillScreen> {
     }
   }
 
-  // Method to upload an image and return the download URL
-  Future<String?> _uploadImage(File? imageFile, String billId, String side) async {
+  /// Save an image to the app's local documents directory and return its path
+  Future<String?> _saveImageLocally(File? imageFile, String billId, String side) async {
     if (imageFile == null) return null;
 
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('bill_images')
-          .child(FirebaseAuth.instance.currentUser!.uid)
-          .child('${billId}_$side.jpg');
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory('${appDir.path}/bill_images');
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
 
-      final uploadTask = await storageRef.putFile(imageFile);
-      return await uploadTask.ref.getDownloadURL();
+      final extension = p.extension(imageFile.path);
+      final newPath = '${imagesDir.path}/${billId}_$side$extension';
+      final savedFile = await imageFile.copy(newPath);
+      return savedFile.path;
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      debugPrint('Error saving image locally: $e');
       return null;
     }
   }
 
-  // Function to show the Date Picker
   Future<void> _presentDatePicker() async {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(), 
+      firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
     if (pickedDate != null) {
@@ -79,52 +81,47 @@ class _AddBillScreenState extends State<AddBillScreen> {
     }
   }
 
-Future<void> _saveBill() async {
+  Future<void> _saveBill() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _authService.currentUser;
       if (user == null) return;
 
-      // 1. Generate a unique ID for the new bill document
-      final docRef = FirebaseFirestore.instance.collection('bills').doc();
+      // Use a timestamp as a unique identifier for image naming
+      final uniqueId = DateTime.now().millisecondsSinceEpoch.toString();
 
-      // 2. Upload images using that new ID
-      String? frontUrl = await _uploadImage(_frontImageFile, docRef.id, 'front');
-      String? backUrl = await _uploadImage(_backImageFile, docRef.id, 'back');
+      // Save images locally
+      String? frontPath = await _saveImageLocally(_frontImageFile, uniqueId, 'front');
+      String? backPath = await _saveImageLocally(_backImageFile, uniqueId, 'back');
 
-      // 3. Create the bill object
+      // Create the bill object
       final newBill = Bill(
-        id: docRef.id,
         title: _titleController.text.trim(),
         amount: double.parse(_amountController.text.trim()),
         dueDate: _selectedDate,
-        userId: user.uid,
+        userId: user.id,
         remindersEnabled: _remindersEnabled,
         alarmEnabled: _alarmEnabled,
-        frontImageUrl: frontUrl,
-        backImageUrl: backUrl,
+        frontImagePath: frontPath,
+        backImagePath: backPath,
       );
 
-      // 4. Save to Firestore
-      await docRef.set(newBill.toMap());
+      // Save to SQLite
+      final billId = await _db.insertBill(newBill);
 
-      // 5. --- SCHEDULE THE NOTIFICATION ---
+      // Schedule notification
       if (_remindersEnabled || _alarmEnabled) {
-        // Convert the Firestore string ID into an integer for the notification system
-        int notificationId = docRef.id.hashCode;
+        int notificationId = billId;
 
-        // Schedule the alarm for 9:00 AM on the due date
         DateTime scheduleTime = DateTime(
           _selectedDate.year,
           _selectedDate.month,
           _selectedDate.day,
-          9, 0, 0, // 9:00 AM
+          9, 0, 0,
         );
 
-        // Safety check: If the user sets the bill due "Today" and it is already past 9:00 AM,
-        // we will schedule the alarm for 2 minutes from now so it doesn't fail.
         if (scheduleTime.isBefore(DateTime.now())) {
           scheduleTime = DateTime.now().add(const Duration(minutes: 2));
         }
@@ -137,7 +134,6 @@ Future<void> _saveBill() async {
           isHighPriorityAlarm: _alarmEnabled,
         );
       }
-      // -------------------------------------
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -200,8 +196,8 @@ Future<void> _saveBill() async {
                       onChanged: (val) => setState(() => _alarmEnabled = val),
                     ),
                     const SizedBox(height: 20),
-                    
-                    // --- THE MISSING UI: Photo Upload Previews ---
+
+                    // Photo Upload Previews
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
@@ -230,7 +226,7 @@ Future<void> _saveBill() async {
                                   ),
                           ),
                         ),
-                        
+
                         // Back Image Picker
                         GestureDetector(
                           onTap: () => _pickImage(false),
@@ -258,8 +254,7 @@ Future<void> _saveBill() async {
                         ),
                       ],
                     ),
-                    // ---------------------------------------------
-                    
+
                     const SizedBox(height: 30),
                     ElevatedButton(
                       onPressed: _saveBill,

@@ -54,13 +54,11 @@ class _AuthScreenState extends State<AuthScreen> {
           _passwordController.text.trim(),
         );
       } else {
-        final user = await _authService.registerWithEmailAndPassword(
+        await _authService.registerWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text.trim(),
+          _usernameController.text.trim(),
         );
-        if (user != null && _usernameController.text.trim().isNotEmpty) {
-          await user.updateDisplayName(_usernameController.text.trim());
-        }
       }
     } catch (e) {
       setState(() {
@@ -73,7 +71,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Colors derived from your mockup
     const bgColor = Color(0xFFE5F6FD);
     const primaryBlue = Color(0xFF6C8CB0);
     const gradientStart = Color(0xFF7A9BBF);
@@ -205,13 +202,13 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 20),
                       ],
 
-                      // Email / Username (Log in) Field
+                      // Email Field
                       TextFormField(
                         controller: _emailController,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
-                          hintText: _isLogin ? 'USERNAME OR EMAIL' : 'EMAIL',
+                          hintText: _isLogin ? 'EMAIL' : 'EMAIL',
                           hintStyle: TextStyle(
                             color: Colors.grey.shade400,
                             fontSize: 12,
@@ -253,9 +250,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         validator: (value) {
                           if (value!.isEmpty) {
-                            return 'Enter a valid email/username';
+                            return 'Enter a valid email';
                           }
-                          if (!_isLogin && !value.contains('@')) {
+                          if (!value.contains('@')) {
                             return 'Enter a valid email';
                           }
                           return null;
@@ -409,9 +406,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         Text(
                           'FORGOT PASSWORD?',
                           style: TextStyle(
-                            color: primaryBlue.withValues(
-                              alpha: 0.8,
-                            ), // UPDATED
+                            color: primaryBlue.withValues(alpha: 0.8),
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -453,7 +448,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: gradientStart.withValues(alpha: 0.5), // UPDATED
+                        color: gradientStart.withValues(alpha: 0.5),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),

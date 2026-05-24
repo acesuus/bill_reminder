@@ -1,30 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'auth_service.dart';
 import 'auth_screen.dart';
-import 'home_screen.dart'; // We will create a placeholder for this next
+import 'home_screen.dart';
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
   @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  final AuthService _authService = AuthService();
+
+  @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      // Listen to the Firebase Auth state
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<LocalUser?>(
+      stream: _authService.authStateChanges,
       builder: (context, snapshot) {
-        // Show a loading spinner while waiting for Firebase to respond
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+        // Check if the user is already logged in (from singleton state)
+        if (_authService.currentUser != null) {
+          return const HomeScreen();
         }
 
-        // If the snapshot has data, the user is logged in [cite: 15]
-        if (snapshot.hasData) {
-          return const HomeScreen(); 
+        // If we get data from the stream, navigate accordingly
+        if (snapshot.hasData && snapshot.data != null) {
+          return const HomeScreen();
         }
 
-        // Otherwise, they are NOT logged in. Show the login/register screen.
+        // Otherwise, show the login/register screen
         return const AuthScreen();
       },
     );
