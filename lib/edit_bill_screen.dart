@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'bill_model.dart';
+import 'database_helper.dart';
 
 class EditBillScreen extends StatefulWidget {
   final Bill bill;
 
-  // FIX 1: Cleaned up the key parameter
   const EditBillScreen({super.key, required this.bill});
 
   @override
-  // FIX 2: Changed return type to a public API (State<EditBillScreen>)
   State<EditBillScreen> createState() => _EditBillScreenState();
 }
 
@@ -17,7 +15,8 @@ class _EditBillScreenState extends State<EditBillScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _titleController;
   late TextEditingController _amountController;
-  
+  final DatabaseHelper _db = DatabaseHelper();
+
   late DateTime _selectedDate;
   late bool _remindersEnabled;
   late bool _alarmEnabled;
@@ -46,7 +45,7 @@ class _EditBillScreenState extends State<EditBillScreen> {
     final pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
-      firstDate: DateTime(2000), 
+      firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
     if (pickedDate != null) {
@@ -61,27 +60,25 @@ class _EditBillScreenState extends State<EditBillScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final updatedData = {
-        'title': _titleController.text.trim(),
-        'amount': double.parse(_amountController.text.trim()),
-        'dueDate': Timestamp.fromDate(_selectedDate),
-        'remindersEnabled': _remindersEnabled,
-        'alarmEnabled': _alarmEnabled,
-        'isPaid': _isPaid,
-      };
+      final updatedBill = Bill(
+        id: widget.bill.id,
+        title: _titleController.text.trim(),
+        amount: double.parse(_amountController.text.trim()),
+        dueDate: _selectedDate,
+        isPaid: _isPaid,
+        remindersEnabled: _remindersEnabled,
+        alarmEnabled: _alarmEnabled,
+        userId: widget.bill.userId,
+        frontImagePath: widget.bill.frontImagePath,
+        backImagePath: widget.bill.backImagePath,
+      );
 
-      await FirebaseFirestore.instance
-          .collection('bills')
-          .doc(widget.bill.id)
-          .update(updatedData);
+      await _db.updateBill(updatedBill);
 
-      // FIX 3: Ensure the context is still mounted after an async gap
-      if (!mounted) return; 
-      Navigator.pop(context); 
-      
+      if (!mounted) return;
+      Navigator.pop(context);
     } catch (e) {
-      // FIX 3: Ensure the context is still mounted here as well
-      if (!mounted) return; 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error updating: $e')),
       );
@@ -112,12 +109,11 @@ class _EditBillScreenState extends State<EditBillScreen> {
 
     if (confirm == true && widget.bill.id != null) {
       setState(() => _isLoading = true);
-      
-      await FirebaseFirestore.instance.collection('bills').doc(widget.bill.id).delete();
-      
-      // FIX 3: Check mounted status before popping
+
+      await _db.deleteBill(widget.bill.id!);
+
       if (!mounted) return;
-      Navigator.pop(context); 
+      Navigator.pop(context);
     }
   }
 
@@ -146,8 +142,8 @@ class _EditBillScreenState extends State<EditBillScreen> {
                       title: const Text('Mark as Paid', style: TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: const Text('Removes from active alerts'),
                       value: _isPaid,
-                      // FIX 4: Updated to activeThumbColor to replace the deprecated activeColor
-                      activeThumbColor: Colors.green, 
+                      activeTrackColor: Colors.green.shade200,
+                      activeColor: Colors.green,
                       onChanged: (val) => setState(() => _isPaid = val),
                     ),
                     const Divider(),
