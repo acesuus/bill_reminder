@@ -19,13 +19,11 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Force all subprojects (plugins) to use the same NDK version
 subprojects {
-    afterEvaluate {
-        if (extensions.findByName("android") != null) {
-            val androidExt = extensions.getByName("android")
-            if (androidExt is com.android.build.gradle.BaseExtension) {
-                androidExt.ndkVersion = "27.0.12077973"
+    project.plugins.whenPluginAdded {
+        if (this is com.android.build.gradle.BasePlugin<*, *, *, *, *, *>) {
+            project.extensions.getByType<com.android.build.gradle.BaseExtension>().apply {
+                ndkVersion = "27.0.12077973"
             }
         }
     }
