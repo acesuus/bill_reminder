@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Bill Reminder",
+    "slug": "bill-reminder",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "billreminder",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#E5F6FD"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.richmond.billreminder",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to capture photos of your bills.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photos to attach bill images."
+      }
+    },
+    "android": {
+      "package": "com.richmond.billreminder",
+      "adaptiveIcon": {
+        "backgroundColor": "#E5F6FD"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS",
+        "USE_FULL_SCREEN_INTENT"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Bill Reminder to access your camera to capture bill photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#6C8CB0"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
