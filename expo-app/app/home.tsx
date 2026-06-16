@@ -1,7 +1,7 @@
-// Dashboard, a port of the Flutter `HomeScreen`.
-// Filter chips + scrollable bill cards, pull-to-refresh, add FAB, logout.
+// Dashboard — GCash-style: gradient header with an unpaid-total summary card,
+// status filter chips, and category-colored bill cards with status badges.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,15 +13,18 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { getBillsByUserId } from '@/db/database';
 import { Bill } from '@/types/bill';
-import { colors, CURRENCY_SYMBOL } from '@/theme/colors';
-import { formatDate } from '@/utils/date';
+import { getCategory } from '@/constants/categories';
+import { colors } from '@/theme/colors';
+import { describeDueDate, formatCurrency } from '@/utils/format';
+import { getBillStatus, getStatusStyle } from '@/utils/status';
 
-const FILTERS = ['All', 'This Month', 'This Year', 'Expired'] as const;
+const FILTERS = ['All', 'Unpaid', 'Overdue', 'Paid'] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function HomeScreen() {
@@ -36,8 +39,7 @@ export default function HomeScreen() {
     setIsLoading(true);
     try {
       if (currentUser) {
-        const bills = await getBillsByUserId(currentUser.id);
-        setAllBills(bills);
+        setAllBills(await getBillsByUserId(currentUser.id));
       }
     } catch (e) {
       console.warn('Error loading bills', e);
@@ -46,28 +48,36 @@ export default function HomeScreen() {
     }
   }, [currentUser]);
 
-  // Reload whenever the screen regains focus (e.g. returning from add/edit).
   useFocusEffect(
     useCallback(() => {
       loadBills();
     }, [loadBills])
   );
 
-  const now = new Date();
-  const filteredBills = allBills.filter((bill) => {
-    const due = new Date(bill.dueDate);
-    if (selectedFilter === 'All') return true;
-    if (selectedFilter === 'This Month') {
-      return due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth();
-    }
-    if (selectedFilter === 'This Year') {
-      return due.getFullYear() === now.getFullYear();
-    }
-    if (selectedFilter === 'Expired') {
-      return due.getTime() < now.getTime() && !bill.isPaid;
-    }
-    return true;
-  });
+  const now = Date.now();
+
+  const summary = useMemo(() => {
+    const unpaid = allBills.filter((b) => !b.isPaid);
+    const totalUnpaid = unpaid.reduce((sum, b) => sum + b.amount, 0);
+    const overdue = unpaid.filter((b) => new Date(b.dueDate).getTime() < now).length;
+    return { totalUnpaid, unpaidCount: unpaid.length, overdue };
+  }, [allBills, now]);
+
+  const filteredBills = useMemo(() => {
+    return allBills.filter((bill) => {
+      const overdue = !bill.isPaid && new Date(bill.dueDate).getTime() < now;
+      switch (selectedFilter) {
+        case 'Unpaid':
+          return !bill.isPaid;
+        case 'Overdue':
+          return overdue;
+        case 'Paid':
+          return bill.isPaid;
+        default:
+          return true;
+      }
+    });
+  }, [allBills, selectedFilter, now]);
 
   const handleLogout = async () => {
     await signOut();
@@ -75,48 +85,89 @@ export default function HomeScreen() {
   };
 
   const renderBill = ({ item }: { item: Bill }) => {
-    const isExpired = new Date(item.dueDate).getTime() < Date.now() && !item.isPaid;
+    const cat = getCategory(item.category);
+    const status = getBillStatus(item);
+    const statusStyle = getStatusStyle(status);
     return (
       <TouchableOpacity
         activeOpacity={0.8}
-        style={[styles.card, isExpired && styles.cardExpired]}
+        style={styles.card}
         onPress={() => router.push({ pathname: '/edit-bill', params: { id: String(item.id) } })}
       >
-        <View style={[styles.leadingIcon, isExpired && styles.leadingIconExpired]}>
-          <MaterialIcons
-            name={isExpired ? 'warning' : 'receipt-long'}
-            size={24}
-            color={isExpired ? colors.red : colors.primaryBlue}
-          />
+        <View style={[styles.catIcon, { backgroundColor: cat.color + '1A' }]}>
+          <MaterialCommunityIcons name={cat.icon} size={24} color={cat.color} />
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={[styles.cardSubtitle, isExpired && styles.cardSubtitleExpired]}>
-            Due: {formatDate(item.dueDate)}
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
           </Text>
-          <Text style={[styles.cardSubtitle, isExpired && styles.cardSubtitleExpired]}>
-            Status: {item.isPaid ? 'Paid' : 'Pending'}
+          <Text style={styles.cardCategory}>{cat.label}</Text>
+          <Text
+            style={[
+              styles.cardDue,
+              status === 'overdue' && { color: colors.danger },
+              status === 'dueSoon' && { color: colors.warning },
+            ]}
+          >
+            {describeDueDate(item.dueDate, item.isPaid)}
           </Text>
         </View>
-        <Text style={styles.amount}>
-          {CURRENCY_SYMBOL}
-          {item.amount.toFixed(2)}
-        </Text>
+        <View style={styles.cardRight}>
+          <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
+          <View style={[styles.badge, { backgroundColor: statusStyle.surface }]}>
+            <Text style={[styles.badgeText, { color: statusStyle.color }]}>
+              {statusStyle.label}
+            </Text>
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* --- APP BAR --- */}
-      <View style={styles.appBar}>
-        <Text style={styles.appBarTitle}>Dashboard</Text>
-        <TouchableOpacity onPress={handleLogout} hitSlop={8}>
-          <MaterialIcons name="logout" size={24} color={colors.primaryBlue} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.root}>
+      {/* --- GRADIENT HEADER --- */}
+      <LinearGradient
+        colors={[colors.headerGradientStart, colors.headerGradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.greeting}>Hello,</Text>
+              <Text style={styles.username}>{currentUser?.username ?? 'there'}</Text>
+            </View>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} hitSlop={8}>
+              <MaterialIcons name="logout" size={20} color={colors.white} />
+            </TouchableOpacity>
+          </View>
 
-      {/* --- FILTER SECTION --- */}
+          {/* Summary card */}
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Total Unpaid</Text>
+            <Text style={styles.summaryAmount}>{formatCurrency(summary.totalUnpaid)}</Text>
+            <View style={styles.summaryStats}>
+              <View style={styles.stat}>
+                <MaterialIcons name="receipt-long" size={18} color={colors.primary} />
+                <Text style={styles.statText}>
+                  {summary.unpaidCount} {summary.unpaidCount === 1 ? 'bill' : 'bills'} due
+                </Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.stat}>
+                <MaterialIcons name="warning-amber" size={18} color={colors.danger} />
+                <Text style={[styles.statText, summary.overdue > 0 && { color: colors.danger }]}>
+                  {summary.overdue} overdue
+                </Text>
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
+
+      {/* --- FILTERS --- */}
       <View style={styles.filterContainer}>
         <ScrollView
           horizontal
@@ -135,8 +186,8 @@ export default function HomeScreen() {
                 <Text
                   style={[
                     styles.chipText,
-                    { color: isSelected ? colors.white : colors.primaryBlue },
-                    isSelected && { fontWeight: 'bold' },
+                    { color: isSelected ? colors.white : colors.primary },
+                    isSelected && { fontWeight: '700' },
                   ]}
                 >
                   {filter}
@@ -150,11 +201,17 @@ export default function HomeScreen() {
       {/* --- BILLS LIST --- */}
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primaryBlue} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : filteredBills.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No bills found for "{selectedFilter}".</Text>
+          <MaterialCommunityIcons name="receipt-text-outline" size={64} color={colors.textFaint} />
+          <Text style={styles.emptyTitle}>No bills here yet</Text>
+          <Text style={styles.emptyText}>
+            {selectedFilter === 'All'
+              ? 'Tap the + button to add your first bill.'
+              : `You have no "${selectedFilter}" bills.`}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -162,8 +219,9 @@ export default function HomeScreen() {
           keyExtractor={(item) => String(item.id)}
           renderItem={renderBill}
           contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={loadBills} tintColor={colors.primaryBlue} />
+            <RefreshControl refreshing={isLoading} onRefresh={loadBills} tintColor={colors.primary} />
           }
         />
       )}
@@ -175,87 +233,123 @@ export default function HomeScreen() {
         onPress={() => router.push('/add-bill')}
       >
         <MaterialIcons name="add" size={28} color={colors.white} />
+        <Text style={styles.fabText}>Add Bill</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  appBar: {
-    height: 56,
-    paddingHorizontal: 16,
+  root: { flex: 1, backgroundColor: colors.bg },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 56,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 8,
   },
-  appBarTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.primaryBlue,
+  greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
+  username: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  logoutBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterContainer: { height: 60, justifyContent: 'center' },
-  filterContent: { paddingHorizontal: 16, alignItems: 'center' },
+  summaryCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 20,
+    marginBottom: -44, // overlap the content below the header
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  summaryLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  summaryAmount: { color: colors.text, fontSize: 32, fontWeight: '900', marginTop: 4 },
+  summaryStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
+  statDivider: { width: 1, height: 18, backgroundColor: colors.border, marginHorizontal: 14 },
+  filterContainer: { marginTop: 56 },
+  filterContent: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center' },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
   },
-  chipSelected: {
-    backgroundColor: colors.primaryBlue,
-    borderColor: 'transparent',
-  },
-  chipUnselected: {
-    backgroundColor: colors.white,
-    borderColor: 'rgba(108,140,176,0.5)',
-  },
-  chipText: { fontSize: 14 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: colors.grey, fontSize: 16 },
-  listContent: { padding: 16 },
+  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipUnselected: { backgroundColor: colors.white, borderColor: colors.border },
+  chipText: { fontSize: 13 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  emptyTitle: { color: colors.text, fontSize: 17, fontWeight: '700', marginTop: 14 },
+  emptyText: { color: colors.textMuted, fontSize: 14, marginTop: 6, textAlign: 'center' },
+  listContent: { padding: 16, paddingBottom: 100 },
   card: {
     backgroundColor: colors.white,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  cardExpired: { borderColor: 'rgba(244,67,54,0.5)' },
-  leadingIcon: {
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: colors.bg,
+  catIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  leadingIconExpired: { backgroundColor: colors.redSurface },
-  cardBody: { flex: 1, marginLeft: 16 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: colors.black },
-  cardSubtitle: { color: colors.greySubtitle, marginTop: 4, lineHeight: 18 },
-  cardSubtitleExpired: { color: colors.red },
-  amount: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: colors.primaryBlue,
-    marginLeft: 8,
+  cardBody: { flex: 1, marginLeft: 14 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  cardCategory: { fontSize: 12, color: colors.textFaint, marginTop: 1 },
+  cardDue: { fontSize: 13, color: colors.textMuted, marginTop: 4, fontWeight: '500' },
+  cardRight: { alignItems: 'flex-end', marginLeft: 8 },
+  amount: { fontSize: 16, fontWeight: '800', color: colors.text },
+  badge: {
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
+  badgeText: { fontSize: 11, fontWeight: '700' },
   fab: {
     position: 'absolute',
     right: 16,
     bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primaryBlue,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 18,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
     elevation: 6,
-    shadowColor: colors.black,
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
   },
+  fabText: { color: colors.white, fontWeight: '800', fontSize: 15 },
 });
