@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -37,6 +38,7 @@ export default function AddBillScreen() {
   const [amount, setAmount] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [recurrence, setRecurrence] = useState<'none' | 'monthly'>('none');
   const [frontImageUri, setFrontImageUri] = useState<string | null>(null);
   const [backImageUri, setBackImageUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,6 +92,7 @@ export default function AddBillScreen() {
         category,
         dueDate: selectedDate.toISOString(),
         isPaid: false,
+        recurrence,
         userId: currentUser.id,
         frontImagePath: frontPath,
         backImagePath: backPath,
@@ -195,6 +198,23 @@ export default function AddBillScreen() {
             minimumDate={new Date()}
             onChange={onDateChange}
           />
+        )}
+
+        {/* --- RECURRING --- */}
+        <View style={styles.recurrenceRow}>
+          <MaterialCommunityIcons name="repeat" size={22} color={colors.primary} />
+          <Text style={styles.recurrenceText}>Repeat monthly</Text>
+          <Switch
+            value={recurrence === 'monthly'}
+            onValueChange={(v) => setRecurrence(v ? 'monthly' : 'none')}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.white}
+          />
+        </View>
+        {recurrence === 'monthly' && (
+          <Text style={styles.recurrenceHint}>
+            A new bill will be created automatically next month when you mark this one paid.
+          </Text>
         )}
 
         {/* --- PHOTOS --- */}
@@ -307,6 +327,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dateText: { flex: 1, fontSize: 16, color: colors.text, fontWeight: '600' },
+  recurrenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  recurrenceText: { flex: 1, fontSize: 15, color: colors.text, fontWeight: '600' },
+  recurrenceHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
   photoRow: { flexDirection: 'row', gap: 12 },
   photoBox: {
     flex: 1,

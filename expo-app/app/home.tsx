@@ -1,5 +1,4 @@
-// Dashboard — GCash-style: gradient header with an unpaid-total summary card,
-// status filter chips, and category-colored bill cards with status badges.
+// Dashboard — gradient header, summary card, status filters, bill cards with logos.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -12,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -31,6 +30,7 @@ type Filter = (typeof FILTERS)[number];
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { currentUser, signOut } = useAuth();
 
   const [selectedFilter, setSelectedFilter] = useState<Filter>('All');
@@ -101,7 +101,10 @@ export default function HomeScreen() {
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.cardCategory}>{cat.label}</Text>
+          <Text style={styles.cardCategory}>
+            {cat.label}
+            {item.recurrence === 'monthly' ? '  \u00B7  Monthly' : ''}
+          </Text>
           <Text
             style={[
               styles.cardDue,
@@ -109,7 +112,7 @@ export default function HomeScreen() {
               status === 'dueSoon' && { color: colors.warning },
             ]}
           >
-            {formatShortDate(item.dueDate)} &middot; {relativeDueDate(item.dueDate, item.isPaid)}
+            {formatShortDate(item.dueDate)} {'\u00B7'} {relativeDueDate(item.dueDate, item.isPaid)}
           </Text>
         </View>
         <View style={styles.cardRight}>
@@ -123,6 +126,9 @@ export default function HomeScreen() {
       </TouchableOpacity>
     );
   };
+
+  // Bottom padding: nav bar safe area + FAB height + extra breathing room
+  const fabBottom = Math.max(insets.bottom, 16) + 16;
 
   return (
     <View style={styles.root}>
@@ -218,7 +224,7 @@ export default function HomeScreen() {
           data={filteredBills}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderBill}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: fabBottom + 60 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={isLoading} onRefresh={loadBills} tintColor={colors.primary} />
@@ -226,9 +232,9 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* --- FAB --- */}
+      {/* --- FAB (respects safe area so it never overlaps nav buttons) --- */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: fabBottom }]}
         activeOpacity={0.85}
         onPress={() => router.push('/add-bill')}
       >
@@ -268,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginTop: 20,
-    marginBottom: -44, // overlap the content below the header
+    marginBottom: -44,
     shadowColor: colors.shadow,
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -300,7 +306,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyTitle: { color: colors.text, fontSize: 17, fontWeight: '700', marginTop: 14 },
   emptyText: { color: colors.textMuted, fontSize: 14, marginTop: 6, textAlign: 'center' },
-  listContent: { padding: 16, paddingBottom: 100 },
+  listContent: { padding: 16 },
   card: {
     backgroundColor: colors.white,
     borderRadius: 16,
@@ -330,13 +336,12 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 16,
-    bottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 18,
-    height: 52,
-    borderRadius: 26,
+    paddingHorizontal: 20,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: colors.primary,
     shadowColor: colors.primary,
     shadowOpacity: 0.4,
