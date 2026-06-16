@@ -12,18 +12,21 @@ export function formatCurrency(amount: number): string {
   );
 }
 
-/** Format a due date relative to today, e.g. "Due today", "Overdue by 3 days". */
-export function describeDueDate(iso: string, isPaid: boolean): string {
+/**
+ * A short relative phrase for the due date:
+ * "Due today", "Due tomorrow", "Due in 3 days", "Overdue by 2 days".
+ * Returns "Paid" when the bill is settled.
+ */
+export function relativeDueDate(iso: string, isPaid: boolean): string {
+  if (isPaid) return 'Paid';
   const due = new Date(iso);
-  if (Number.isNaN(due.getTime())) return iso;
+  if (Number.isNaN(due.getTime())) return '';
 
-  const today = new Date();
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diffDays = Math.round(
-    (startOfDay(due).getTime() - startOfDay(today).getTime()) / 86400000
+    (startOfDay(due).getTime() - startOfDay(new Date()).getTime()) / 86400000
   );
 
-  if (isPaid) return 'Paid';
   if (diffDays === 0) return 'Due today';
   if (diffDays === 1) return 'Due tomorrow';
   if (diffDays > 1) return `Due in ${diffDays} days`;

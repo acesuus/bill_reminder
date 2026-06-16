@@ -24,8 +24,9 @@ import { insertBill } from '@/db/database';
 import { saveImageLocally } from '@/utils/images';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
+import BillerLogo from '@/components/BillerLogo';
 import { colors, CURRENCY_SYMBOL } from '@/theme/colors';
-import { formatDate } from '@/utils/date';
+import { formatLongDate } from '@/utils/date';
 
 export default function AddBillScreen() {
   const router = useRouter();
@@ -144,6 +145,7 @@ export default function AddBillScreen() {
                       onPress={() => setTitle(b)}
                       style={[styles.billerChip, active && styles.billerChipActive]}
                     >
+                      <BillerLogo name={b} size={28} />
                       <Text style={[styles.billerChipText, active && { color: colors.white }]}>
                         {b}
                       </Text>
@@ -182,7 +184,7 @@ export default function AddBillScreen() {
         <Text style={styles.sectionTitle}>Due date</Text>
         <TouchableOpacity style={styles.dateRow} onPress={() => setShowDatePicker(true)}>
           <MaterialCommunityIcons name="calendar-month-outline" size={22} color={colors.primary} />
-          <Text style={styles.dateText}>{formatDate(selectedDate.toISOString())}</Text>
+          <Text style={styles.dateText}>{formatLongDate(selectedDate)}</Text>
           <MaterialIcons name="chevron-right" size={22} color={colors.textFaint} />
         </TouchableOpacity>
         {showDatePicker && (
@@ -258,7 +260,10 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 12, marginTop: 6, fontWeight: '600' },
   billerRow: { paddingVertical: 2, paddingRight: 8, gap: 8 },
   billerChip: {
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: colors.white,

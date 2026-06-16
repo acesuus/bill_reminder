@@ -1,11 +1,24 @@
-// Small date helpers shared across screens.
+// Date formatting helpers — human-readable, no raw ISO/time strings.
 
-/** Format an ISO date string as YYYY-MM-DD (matches the Flutter `split(' ')[0]`). */
-export function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** e.g. "Mon, Jun 16, 2026" — used on form date pickers. */
+export function formatLongDate(iso: string | Date): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+/** e.g. "Jun 16, 2026" — compact form used on cards. */
+export function formatShortDate(iso: string | Date): string {
+  const d = iso instanceof Date ? iso : new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
