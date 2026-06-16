@@ -1,17 +1,10 @@
-import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '@/context/AuthContext';
-import { initNotifications } from '@/services/notifications';
 import { colors } from '@/theme/colors';
 
 export default function RootLayout() {
-  useEffect(() => {
-    // Set up notification channels / permissions once on startup.
-    initNotifications().catch((e) => console.warn('Notification init failed', e));
-  }, []);
-
   return (
     <SafeAreaProvider>
       <AuthProvider>

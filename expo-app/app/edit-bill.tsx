@@ -1,5 +1,5 @@
 // Edit Bill screen, a port of the Flutter `EditBillScreen`.
-// Mark as paid, edit fields, toggle reminders, delete.
+// Mark as paid, edit fields, delete.
 
 import { useEffect, useState } from 'react';
 import {
@@ -18,7 +18,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { deleteBill, getBillById, updateBill } from '@/db/database';
-import { cancelBillReminder, scheduleBillReminder } from '@/services/notifications';
 import { Bill } from '@/types/bill';
 import { colors } from '@/theme/colors';
 import { formatDate } from '@/utils/date';
@@ -33,8 +32,6 @@ export default function EditBillScreen() {
   const [amount, setAmount] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [remindersEnabled, setRemindersEnabled] = useState(true);
-  const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ title?: string; amount?: string }>({});
@@ -47,8 +44,6 @@ export default function EditBillScreen() {
         setTitle(loaded.title);
         setAmount(String(loaded.amount));
         setSelectedDate(new Date(loaded.dueDate));
-        setRemindersEnabled(loaded.remindersEnabled);
-        setAlarmEnabled(loaded.alarmEnabled);
         setIsPaid(loaded.isPaid);
       }
       setIsLoading(false);
@@ -78,35 +73,8 @@ export default function EditBillScreen() {
         amount: parseFloat(amount.trim()),
         dueDate: selectedDate.toISOString(),
         isPaid,
-        remindersEnabled,
-        alarmEnabled,
       };
       await updateBill(updated);
-
-      // Keep scheduled notifications in sync with the new state.
-      if (isPaid || (!remindersEnabled && !alarmEnabled)) {
-        await cancelBillReminder(bill.id);
-      } else {
-        let scheduleTime = new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          9,
-          0,
-          0
-        );
-        if (scheduleTime.getTime() < Date.now()) {
-          scheduleTime = new Date(Date.now() + 2 * 60 * 1000);
-        }
-        await scheduleBillReminder({
-          billId: bill.id,
-          title: `Bill Reminder: ${title.trim()}`,
-          body: `Your bill of \u20B1${parseFloat(amount.trim()).toFixed(2)} is due today!`,
-          scheduledDate: scheduleTime,
-          isHighPriorityAlarm: alarmEnabled,
-        });
-      }
-
       router.back();
     } catch (e) {
       Alert.alert('Error', `Error updating: ${e instanceof Error ? e.message : String(e)}`);
@@ -124,7 +92,6 @@ export default function EditBillScreen() {
         onPress: async () => {
           if (!bill?.id) return;
           setIsLoading(true);
-          await cancelBillReminder(bill.id);
           await deleteBill(bill.id);
           router.back();
         },
@@ -193,15 +160,6 @@ export default function EditBillScreen() {
         <DateTimePicker value={selectedDate} mode="date" display="default" onChange={onDateChange} />
       )}
 
-      <View style={styles.switchRow}>
-        <Text style={styles.rowText}>Enable Notifications</Text>
-        <Switch value={remindersEnabled} onValueChange={setRemindersEnabled} trackColor={{ true: colors.primaryBlue }} />
-      </View>
-      <View style={styles.switchRow}>
-        <Text style={styles.rowText}>Enable Alarm</Text>
-        <Switch value={alarmEnabled} onValueChange={setAlarmEnabled} trackColor={{ true: colors.primaryBlue }} />
-      </View>
-
       <TouchableOpacity style={styles.saveButton} onPress={handleUpdate}>
         <Text style={styles.saveButtonText}>Update Bill Details</Text>
       </TouchableOpacity>
@@ -237,12 +195,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowText: { fontSize: 16, color: colors.black },
-  switchRow: {
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   saveButton: {
     marginTop: 30,
     backgroundColor: colors.primaryBlue,

@@ -30,8 +30,6 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           isPaid INTEGER NOT NULL DEFAULT 0,
           frontImagePath TEXT,
           backImagePath TEXT,
-          remindersEnabled INTEGER NOT NULL DEFAULT 1,
-          alarmEnabled INTEGER NOT NULL DEFAULT 1,
           userId INTEGER NOT NULL,
           FOREIGN KEY (userId) REFERENCES users (id)
         );
@@ -83,16 +81,14 @@ export async function insertBill(bill: Bill): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `INSERT INTO bills
-      (title, amount, dueDate, isPaid, frontImagePath, backImagePath, remindersEnabled, alarmEnabled, userId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (title, amount, dueDate, isPaid, frontImagePath, backImagePath, userId)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     bill.title,
     bill.amount,
     bill.dueDate,
     bill.isPaid ? 1 : 0,
     bill.frontImagePath ?? null,
     bill.backImagePath ?? null,
-    bill.remindersEnabled ? 1 : 0,
-    bill.alarmEnabled ? 1 : 0,
     bill.userId
   );
   return result.lastInsertRowId;
@@ -119,7 +115,7 @@ export async function updateBill(bill: Bill): Promise<number> {
   const result = await db.runAsync(
     `UPDATE bills SET
       title = ?, amount = ?, dueDate = ?, isPaid = ?,
-      frontImagePath = ?, backImagePath = ?, remindersEnabled = ?, alarmEnabled = ?, userId = ?
+      frontImagePath = ?, backImagePath = ?, userId = ?
      WHERE id = ?`,
     bill.title,
     bill.amount,
@@ -127,8 +123,6 @@ export async function updateBill(bill: Bill): Promise<number> {
     bill.isPaid ? 1 : 0,
     bill.frontImagePath ?? null,
     bill.backImagePath ?? null,
-    bill.remindersEnabled ? 1 : 0,
-    bill.alarmEnabled ? 1 : 0,
     bill.userId,
     bill.id
   );

@@ -14,8 +14,6 @@ export interface Bill {
   isPaid: boolean;
   frontImagePath?: string | null;
   backImagePath?: string | null;
-  remindersEnabled: boolean;
-  alarmEnabled: boolean;
   userId: number;
 }
 
@@ -28,8 +26,6 @@ export interface BillRow {
   isPaid: number;
   frontImagePath: string | null;
   backImagePath: string | null;
-  remindersEnabled: number;
-  alarmEnabled: number;
   userId: number;
 }
 
@@ -42,8 +38,6 @@ export function billFromRow(row: BillRow): Bill {
     isPaid: row.isPaid === 1,
     frontImagePath: row.frontImagePath,
     backImagePath: row.backImagePath,
-    remindersEnabled: row.remindersEnabled === 1,
-    alarmEnabled: row.alarmEnabled === 1,
     userId: row.userId ?? 0,
   };
 }

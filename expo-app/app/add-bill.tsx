@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,7 +19,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { insertBill } from '@/db/database';
-import { scheduleBillReminder } from '@/services/notifications';
 import { saveImageLocally } from '@/utils/images';
 import { colors } from '@/theme/colors';
 import { formatDate } from '@/utils/date';
@@ -33,8 +31,6 @@ export default function AddBillScreen() {
   const [amount, setAmount] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [remindersEnabled, setRemindersEnabled] = useState(true);
-  const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [frontImageUri, setFrontImageUri] = useState<string | null>(null);
   const [backImageUri, setBackImageUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,39 +72,15 @@ export default function AddBillScreen() {
       const frontPath = await saveImageLocally(frontImageUri, uniqueRef, 'front');
       const backPath = await saveImageLocally(backImageUri, uniqueRef, 'back');
 
-      const billId = await insertBill({
+      await insertBill({
         title: title.trim(),
         amount: parseFloat(amount.trim()),
         dueDate: selectedDate.toISOString(),
         isPaid: false,
         userId: currentUser.id,
-        remindersEnabled,
-        alarmEnabled,
         frontImagePath: frontPath,
         backImagePath: backPath,
       });
-
-      if (remindersEnabled || alarmEnabled) {
-        // Schedule for 9:00 AM on the due date (matches Flutter logic).
-        let scheduleTime = new Date(
-          selectedDate.getFullYear(),
-          selectedDate.getMonth(),
-          selectedDate.getDate(),
-          9,
-          0,
-          0
-        );
-        if (scheduleTime.getTime() < Date.now()) {
-          scheduleTime = new Date(Date.now() + 2 * 60 * 1000);
-        }
-        await scheduleBillReminder({
-          billId,
-          title: `Bill Reminder: ${title.trim()}`,
-          body: `Your bill of \u20B1${parseFloat(amount.trim()).toFixed(2)} is due today!`,
-          scheduledDate: scheduleTime,
-          isHighPriorityAlarm: alarmEnabled,
-        });
-      }
 
       router.back();
     } catch (e) {
@@ -162,23 +134,6 @@ export default function AddBillScreen() {
           onChange={onDateChange}
         />
       )}
-
-      <View style={styles.switchRow}>
-        <Text style={styles.rowText}>Enable Notifications</Text>
-        <Switch
-          value={remindersEnabled}
-          onValueChange={setRemindersEnabled}
-          trackColor={{ true: colors.primaryBlue }}
-        />
-      </View>
-      <View style={styles.switchRow}>
-        <Text style={styles.rowText}>Enable Alarm</Text>
-        <Switch
-          value={alarmEnabled}
-          onValueChange={setAlarmEnabled}
-          trackColor={{ true: colors.primaryBlue }}
-        />
-      </View>
 
       {/* Photo upload previews */}
       <View style={styles.photoRow}>
@@ -235,12 +190,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowText: { fontSize: 16, color: colors.black },
-  switchRow: {
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   photoRow: {
     marginTop: 20,
     flexDirection: 'row',

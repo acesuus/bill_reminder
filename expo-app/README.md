@@ -16,8 +16,6 @@ visual design, screens, and feature set.
   "Mark as Paid" toggle.
 - **Bill photos** — capture front/back images with the camera; files are copied
   into the app's document directory.
-- **Local notifications** — schedules a reminder at 9:00 AM on the due date
-  (`expo-notifications`), with an optional high-priority "alarm".
 
 ## Tech stack
 
@@ -26,7 +24,6 @@ visual design, screens, and feature set.
 | Navigation     | `expo-router` (file-based)                |
 | Local database | `expo-sqlite`                             |
 | Session store  | `@react-native-async-storage/async-storage` |
-| Notifications  | `expo-notifications`                      |
 | Camera         | `expo-image-picker`                       |
 | File storage   | `expo-file-system`                        |
 | Date picker    | `@react-native-community/datetimepicker`  |
@@ -37,7 +34,7 @@ visual design, screens, and feature set.
 ```
 expo-app/
 ├── app/                     # expo-router screens (file-based routing)
-│   ├── _layout.tsx          # Root stack + providers + notification init
+│   ├── _layout.tsx          # Root stack + providers
 │   ├── index.tsx            # Auth gate (redirects to /home or /auth)
 │   ├── auth.tsx             # Name sign-in screen
 │   ├── home.tsx             # Dashboard (filters + bill cards)
@@ -46,7 +43,6 @@ expo-app/
 ├── src/
 │   ├── context/AuthContext.tsx   # Local auth + session persistence
 │   ├── db/database.ts            # SQLite schema + CRUD
-│   ├── services/notifications.ts # Schedule / cancel reminders
 │   ├── theme/colors.ts           # Shared palette (ported from Flutter)
 │   ├── types/bill.ts             # Domain models
 │   └── utils/                    # date + image helpers
@@ -77,11 +73,8 @@ Then open the app in **Expo Go** (scan the QR code) or run it on a simulator.
 
 ### Notes on native features
 
-- **Notifications** and the **camera** require a physical device or a dev
-  build. Scheduled local notifications and the camera have limited or no
-  support in the web target and in some simulators.
-- On Android 13+ the app requests notification permission at runtime; on
-  Android 14+ exact-alarm scheduling is used for due-date reminders.
+- The **camera** requires a physical device or a dev build; it has limited or no
+  support in the web target and some simulators.
 
 ## Mapping from the Flutter app
 
@@ -95,5 +88,4 @@ Then open the app in **Expo Go** (scan the QR code) or run it on a simulator.
 | `add_bill_screen.dart`    | `app/add-bill.tsx`                  |
 | `edit_bill_screen.dart`   | `app/edit-bill.tsx`                 |
 | `database_helper.dart`    | `src/db/database.ts`                |
-| `notification_service.dart` | `src/services/notifications.ts`   |
 | `bill_model.dart`         | `src/types/bill.ts`                 |

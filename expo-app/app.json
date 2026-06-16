@@ -25,11 +25,7 @@
         "backgroundColor": "#E5F6FD"
       },
       "permissions": [
-        "CAMERA",
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "POST_NOTIFICATIONS",
-        "USE_FULL_SCREEN_INTENT"
+        "CAMERA"
       ]
     },
     "web": {
@@ -43,12 +39,6 @@
         "expo-image-picker",
         {
           "cameraPermission": "Allow Bill Reminder to access your camera to capture bill photos."
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "color": "#6C8CB0"
         }
       ]
     ],
