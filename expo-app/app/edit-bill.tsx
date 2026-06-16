@@ -22,7 +22,7 @@ import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
 import { colors, CURRENCY_SYMBOL } from '@/theme/colors';
-import { formatDate } from '@/utils/date';
+import { formatLongDate } from '@/utils/date';
 
 export default function EditBillScreen() {
   const router = useRouter();
@@ -206,7 +206,7 @@ export default function EditBillScreen() {
         <Text style={styles.sectionTitle}>Due date</Text>
         <TouchableOpacity style={styles.dateRow} onPress={() => setShowDatePicker(true)}>
           <MaterialCommunityIcons name="calendar-month-outline" size={22} color={colors.primary} />
-          <Text style={styles.dateText}>{formatDate(selectedDate.toISOString())}</Text>
+          <Text style={styles.dateText}>{formatLongDate(selectedDate)}</Text>
           <MaterialIcons name="chevron-right" size={22} color={colors.textFaint} />
         </TouchableOpacity>
         {showDatePicker && (

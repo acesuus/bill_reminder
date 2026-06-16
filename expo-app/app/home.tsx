@@ -20,8 +20,10 @@ import { useAuth } from '@/context/AuthContext';
 import { getBillsByUserId } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
+import BillerLogo from '@/components/BillerLogo';
 import { colors } from '@/theme/colors';
-import { describeDueDate, formatCurrency } from '@/utils/format';
+import { relativeDueDate, formatCurrency } from '@/utils/format';
+import { formatShortDate } from '@/utils/date';
 import { getBillStatus, getStatusStyle } from '@/utils/status';
 
 const FILTERS = ['All', 'Unpaid', 'Overdue', 'Paid'] as const;
@@ -94,9 +96,7 @@ export default function HomeScreen() {
         style={styles.card}
         onPress={() => router.push({ pathname: '/edit-bill', params: { id: String(item.id) } })}
       >
-        <View style={[styles.catIcon, { backgroundColor: cat.color + '1A' }]}>
-          <MaterialCommunityIcons name={cat.icon} size={24} color={cat.color} />
-        </View>
+        <BillerLogo name={item.title} size={48} />
         <View style={styles.cardBody}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.title}
@@ -109,7 +109,7 @@ export default function HomeScreen() {
               status === 'dueSoon' && { color: colors.warning },
             ]}
           >
-            {describeDueDate(item.dueDate, item.isPaid)}
+            {formatShortDate(item.dueDate)} &middot; {relativeDueDate(item.dueDate, item.isPaid)}
           </Text>
         </View>
         <View style={styles.cardRight}>
@@ -313,13 +313,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
-  },
-  catIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   cardBody: { flex: 1, marginLeft: 14 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
