@@ -137,7 +137,8 @@ const styles = StyleSheet.create({
   header: {
     width: '100%',
     paddingHorizontal: 35,
-    paddingVertical: 35,
+    paddingVertical: 40,
+    borderBottomRightRadius: 32,
     // shadow
     shadowColor: colors.black,
     shadowOpacity: 0.25,
@@ -148,14 +149,14 @@ const styles = StyleSheet.create({
   headerBold: {
     fontSize: 32,
     fontWeight: '900',
-    color: colors.black,
+    color: colors.white,
     letterSpacing: 1,
   },
   headerLight: {
     fontSize: 32,
     fontWeight: '300',
     lineHeight: 32 * 1.15,
-    color: colors.black,
+    color: colors.white,
   },
   welcome: {
     fontSize: 16,

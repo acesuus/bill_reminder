@@ -9,6 +9,8 @@ export interface Bill {
   id?: number;
   title: string;
   amount: number;
+  /** Category id, e.g. "electricity" | "water" | "internet" ... */
+  category: string;
   /** ISO 8601 string (stored as TEXT in SQLite, like the Flutter app). */
   dueDate: string;
   isPaid: boolean;
@@ -22,6 +24,7 @@ export interface BillRow {
   id: number;
   title: string;
   amount: number;
+  category: string | null;
   dueDate: string;
   isPaid: number;
   frontImagePath: string | null;
@@ -34,6 +37,7 @@ export function billFromRow(row: BillRow): Bill {
     id: row.id,
     title: row.title ?? 'Unknown Bill',
     amount: Number(row.amount) || 0,
+    category: row.category ?? 'other',
     dueDate: row.dueDate,
     isPaid: row.isPaid === 1,
     frontImagePath: row.frontImagePath,

@@ -26,6 +26,7 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
           amount REAL NOT NULL,
+          category TEXT NOT NULL DEFAULT 'other',
           dueDate TEXT NOT NULL,
           isPaid INTEGER NOT NULL DEFAULT 0,
           frontImagePath TEXT,
@@ -34,10 +35,25 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           FOREIGN KEY (userId) REFERENCES users (id)
         );
       `);
+
+      // --- Migrations for databases created by earlier versions ---
+      await migrate(db);
       return db;
     })();
   }
   return dbPromise;
+}
+
+/** Add columns introduced after the initial release, if they're missing. */
+async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(bills)');
+  const hasColumn = (name: string) => columns.some((c) => c.name === name);
+
+  if (!hasColumn('category')) {
+    await db.execAsync(
+      "ALTER TABLE bills ADD COLUMN category TEXT NOT NULL DEFAULT 'other'"
+    );
+  }
 }
 
 // --- User methods ---
@@ -81,10 +97,11 @@ export async function insertBill(bill: Bill): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `INSERT INTO bills
-      (title, amount, dueDate, isPaid, frontImagePath, backImagePath, userId)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (title, amount, category, dueDate, isPaid, frontImagePath, backImagePath, userId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     bill.title,
     bill.amount,
+    bill.category,
     bill.dueDate,
     bill.isPaid ? 1 : 0,
     bill.frontImagePath ?? null,
@@ -114,11 +131,12 @@ export async function updateBill(bill: Bill): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `UPDATE bills SET
-      title = ?, amount = ?, dueDate = ?, isPaid = ?,
+      title = ?, amount = ?, category = ?, dueDate = ?, isPaid = ?,
       frontImagePath = ?, backImagePath = ?, userId = ?
      WHERE id = ?`,
     bill.title,
     bill.amount,
+    bill.category,
     bill.dueDate,
     bill.isPaid ? 1 : 0,
     bill.frontImagePath ?? null,

@@ -10,9 +10,14 @@ visual design, screens, and feature set.
   (`expo-sqlite`). No network connection is ever required.
 - **Name-based local sign-in** — enter a name to continue; the user is created
   automatically on first use. The session is persisted with `AsyncStorage`.
-- **Dashboard** with filter chips: `All`, `This Month`, `This Year`, `Expired`.
-  Expired-and-unpaid bills are highlighted in red.
-- **Add / edit / delete bills** — title, amount (peso `₱`), due date, and a
+- **Dashboard** with a gradient header and an "unpaid total" summary card,
+  status filter chips (`All`, `Unpaid`, `Overdue`, `Paid`), and category-colored
+  bill cards with status badges (Paid / Overdue / Due soon / Pending).
+- **GCash-style bill categories** — pick a category (Electricity, Water,
+  Internet, Mobile, Streaming, Credit Card, Loan, Rent, Insurance, Government,
+  Education, Other) and a common biller (PALECO, MERALCO, Maynilad, PLDT, …) or
+  type a custom name.
+- **Add / edit / delete bills** — biller, amount (peso `₱`), due date, and a
   "Mark as Paid" toggle.
 - **Bill photos** — capture front/back images with the camera; files are copied
   into the app's document directory.
