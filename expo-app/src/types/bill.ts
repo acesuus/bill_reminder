@@ -14,6 +14,8 @@ export interface Bill {
   /** ISO 8601 string (stored as TEXT in SQLite, like the Flutter app). */
   dueDate: string;
   isPaid: boolean;
+  /** Recurrence: "none" | "monthly" — when paid, auto-creates the next due entry. */
+  recurrence: 'none' | 'monthly';
   frontImagePath?: string | null;
   backImagePath?: string | null;
   userId: number;
@@ -27,6 +29,7 @@ export interface BillRow {
   category: string | null;
   dueDate: string;
   isPaid: number;
+  recurrence: string | null;
   frontImagePath: string | null;
   backImagePath: string | null;
   userId: number;
@@ -40,6 +43,7 @@ export function billFromRow(row: BillRow): Bill {
     category: row.category ?? 'other',
     dueDate: row.dueDate,
     isPaid: row.isPaid === 1,
+    recurrence: row.recurrence === 'monthly' ? 'monthly' : 'none',
     frontImagePath: row.frontImagePath,
     backImagePath: row.backImagePath,
     userId: row.userId ?? 0,

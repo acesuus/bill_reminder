@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { deleteBill, getBillById, updateBill } from '@/db/database';
+import { deleteBill, getBillById, insertBill, updateBill } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
@@ -36,6 +36,7 @@ export default function EditBillScreen() {
   const [amount, setAmount] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [recurrence, setRecurrence] = useState<'none' | 'monthly'>('none');
   const [isPaid, setIsPaid] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ title?: string; amount?: string }>({});
@@ -49,6 +50,7 @@ export default function EditBillScreen() {
         setTitle(loaded.title);
         setAmount(String(loaded.amount));
         setSelectedDate(new Date(loaded.dueDate));
+        setRecurrence(loaded.recurrence);
         setIsPaid(loaded.isPaid);
       }
       setIsLoading(false);
@@ -75,14 +77,34 @@ export default function EditBillScreen() {
     if (!validate() || !bill?.id) return;
     setIsLoading(true);
     try {
-      await updateBill({
+      const updatedBill: Bill = {
         ...bill,
         title: title.trim(),
         amount: parseFloat(amount.trim()),
         category,
         dueDate: selectedDate.toISOString(),
         isPaid,
-      });
+        recurrence,
+      };
+      await updateBill(updatedBill);
+
+      // If marking as paid and it's a recurring bill, auto-create next month's entry.
+      if (isPaid && recurrence === 'monthly' && !bill.isPaid) {
+        const nextDue = new Date(selectedDate);
+        nextDue.setMonth(nextDue.getMonth() + 1);
+        await insertBill({
+          title: updatedBill.title,
+          amount: updatedBill.amount,
+          category: updatedBill.category,
+          dueDate: nextDue.toISOString(),
+          isPaid: false,
+          recurrence: 'monthly',
+          userId: updatedBill.userId,
+          frontImagePath: null,
+          backImagePath: null,
+        });
+      }
+
       router.back();
     } catch (e) {
       Alert.alert('Error', `Error updating: ${e instanceof Error ? e.message : String(e)}`);
@@ -213,6 +235,23 @@ export default function EditBillScreen() {
           <DateTimePicker value={selectedDate} mode="date" display="default" onChange={onDateChange} />
         )}
 
+        {/* --- RECURRING --- */}
+        <View style={styles.recurrenceRow}>
+          <MaterialCommunityIcons name="repeat" size={22} color={colors.primary} />
+          <Text style={styles.recurrenceText}>Repeat monthly</Text>
+          <Switch
+            value={recurrence === 'monthly'}
+            onValueChange={(v) => setRecurrence(v ? 'monthly' : 'none')}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.white}
+          />
+        </View>
+        {recurrence === 'monthly' && (
+          <Text style={styles.recurrenceHint}>
+            When marked as paid, a new bill for next month will be created automatically.
+          </Text>
+        )}
+
         <TouchableOpacity style={styles.saveButton} activeOpacity={0.85} onPress={handleUpdate}>
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
@@ -303,6 +342,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   dateText: { flex: 1, fontSize: 16, color: colors.text, fontWeight: '600' },
+  recurrenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+  },
+  recurrenceText: { flex: 1, fontSize: 15, color: colors.text, fontWeight: '600' },
+  recurrenceHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
   saveButton: {
     marginTop: 28,
     backgroundColor: colors.primary,

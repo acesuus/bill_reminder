@@ -29,6 +29,7 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           category TEXT NOT NULL DEFAULT 'other',
           dueDate TEXT NOT NULL,
           isPaid INTEGER NOT NULL DEFAULT 0,
+          recurrence TEXT NOT NULL DEFAULT 'none',
           frontImagePath TEXT,
           backImagePath TEXT,
           userId INTEGER NOT NULL,
@@ -52,6 +53,12 @@ async function migrate(db: SQLite.SQLiteDatabase): Promise<void> {
   if (!hasColumn('category')) {
     await db.execAsync(
       "ALTER TABLE bills ADD COLUMN category TEXT NOT NULL DEFAULT 'other'"
+    );
+  }
+
+  if (!hasColumn('recurrence')) {
+    await db.execAsync(
+      "ALTER TABLE bills ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'"
     );
   }
 }
@@ -97,13 +104,14 @@ export async function insertBill(bill: Bill): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `INSERT INTO bills
-      (title, amount, category, dueDate, isPaid, frontImagePath, backImagePath, userId)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (title, amount, category, dueDate, isPaid, recurrence, frontImagePath, backImagePath, userId)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     bill.title,
     bill.amount,
     bill.category,
     bill.dueDate,
     bill.isPaid ? 1 : 0,
+    bill.recurrence,
     bill.frontImagePath ?? null,
     bill.backImagePath ?? null,
     bill.userId
@@ -131,7 +139,7 @@ export async function updateBill(bill: Bill): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
     `UPDATE bills SET
-      title = ?, amount = ?, category = ?, dueDate = ?, isPaid = ?,
+      title = ?, amount = ?, category = ?, dueDate = ?, isPaid = ?, recurrence = ?,
       frontImagePath = ?, backImagePath = ?, userId = ?
      WHERE id = ?`,
     bill.title,
@@ -139,6 +147,7 @@ export async function updateBill(bill: Bill): Promise<number> {
     bill.category,
     bill.dueDate,
     bill.isPaid ? 1 : 0,
+    bill.recurrence,
     bill.frontImagePath ?? null,
     bill.backImagePath ?? null,
     bill.userId,
