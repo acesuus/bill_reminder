@@ -1,8 +1,9 @@
 // Dashboard — month picker, gradient header, summary card, sort + filters, bill cards.
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   LayoutChangeEvent,
   RefreshControl,
@@ -22,7 +23,6 @@ import { getBillsByUserId } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
 import BillerLogo from '@/components/BillerLogo';
-import { colors } from '@/theme/colors';
 import { relativeDueDate, formatCurrency } from '@/utils/format';
 import { formatShortDate } from '@/utils/date';
 import { getBillStatus, getStatusStyle } from '@/utils/status';
@@ -161,9 +161,46 @@ export default function HomeScreen() {
     return bills;
   }, [monthBills, selectedFilter, sortBy, now]);
 
-  const handleLogout = async () => {
-    await signOut();
-    router.replace('/auth');
+  const filterCounts = useMemo(() => {
+    // Upcoming: same logic as the 'Upcoming' case in filteredBills
+    const unpaid = monthBills.filter((b) => !b.isPaid);
+    const seen = new Map<string, Bill>();
+    for (const bill of unpaid) {
+      if (bill.recurrence === 'monthly') {
+        const key = `${bill.title}|${bill.category}|${bill.userId}`;
+        const existing = seen.get(key);
+        if (!existing || new Date(bill.dueDate).getTime() < new Date(existing.dueDate).getTime()) {
+          seen.set(key, bill);
+        }
+      } else {
+        seen.set(`single_${bill.id}`, bill);
+      }
+    }
+    const upcomingCount = seen.size;
+    const overdueCount = monthBills.filter((b) => !b.isPaid && new Date(b.dueDate).getTime() < now).length;
+    const paidCount = monthBills.filter((b) => b.isPaid).length;
+    const allCount = monthBills.length;
+
+    return {
+      Upcoming: upcomingCount,
+      Overdue: overdueCount,
+      Paid: paidCount,
+      All: allCount,
+    } as Record<Filter, number>;
+  }, [monthBills, now]);
+
+  const handleLogout = () => {
+    Alert.alert('Log out?', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/auth');
+        },
+      },
+    ]);
   };
 
   // Measure the filter row position so we can place the sort dropdown directly below it
@@ -332,7 +369,7 @@ export default function HomeScreen() {
                     isSelected && { fontWeight: '700' },
                   ]}
                 >
-                  {filter}
+                  {filter} ({filterCounts[filter]})
                 </Text>
               </TouchableOpacity>
             );
