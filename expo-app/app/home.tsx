@@ -1,9 +1,10 @@
 // Dashboard — month picker, gradient header, summary card, sort + filters, bill cards.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  LayoutChangeEvent,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -41,11 +42,12 @@ export default function HomeScreen() {
   // Month picker — defaults to current month
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
 
   const [selectedFilter, setSelectedFilter] = useState<Filter>('Upcoming');
   const [sortBy, setSortBy] = useState<SortOption>('Due Date');
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [sortMenuTop, setSortMenuTop] = useState(0);
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -100,7 +102,6 @@ export default function HomeScreen() {
 
   const now = Date.now();
 
-  // Filter bills to the selected month first
   const monthBills = useMemo(() => {
     return allBills.filter((b) => {
       const d = new Date(b.dueDate);
@@ -108,7 +109,6 @@ export default function HomeScreen() {
     });
   }, [allBills, viewYear, viewMonth]);
 
-  // Summary scoped to the selected month's unpaid bills
   const summary = useMemo(() => {
     const unpaid = monthBills.filter((b) => !b.isPaid);
     const totalUnpaid = unpaid.reduce((sum, b) => sum + b.amount, 0);
@@ -116,14 +116,12 @@ export default function HomeScreen() {
     return { totalUnpaid, unpaidCount: unpaid.length, overdue };
   }, [monthBills, now]);
 
-  // Status + dedup filtering within the selected month
   const filteredBills = useMemo(() => {
     let bills: Bill[];
 
     switch (selectedFilter) {
       case 'Upcoming': {
         const unpaid = monthBills.filter((b) => !b.isPaid);
-        // Deduplicate recurring: show only the earliest upcoming per group
         const seen = new Map<string, Bill>();
         for (const bill of unpaid) {
           if (bill.recurrence === 'monthly') {
@@ -149,7 +147,6 @@ export default function HomeScreen() {
         bills = [...monthBills];
     }
 
-    // Sort
     bills.sort((a, b) => {
       switch (sortBy) {
         case 'Amount':
@@ -169,6 +166,12 @@ export default function HomeScreen() {
     router.replace('/auth');
   };
 
+  // Measure the filter row position so we can place the sort dropdown directly below it
+  const onFilterRowLayout = (e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    setSortMenuTop(y + height + 4);
+  };
+
   const renderBill = ({ item }: { item: Bill }) => {
     const cat = getCategory(item.category);
     const status = getBillStatus(item);
@@ -179,7 +182,7 @@ export default function HomeScreen() {
         style={[styles.card, { backgroundColor: theme.surface }]}
         onPress={() => router.push({ pathname: '/edit-bill', params: { id: String(item.id) } })}
       >
-        <BillerLogo name={item.title} size={48} />
+        <BillerLogo name={item.title} size={44} />
         <View style={styles.cardBody}>
           <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
             {item.title}
@@ -266,21 +269,21 @@ export default function HomeScreen() {
           style={[styles.actionBtn, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/history')}
         >
-          <MaterialCommunityIcons name="history" size={22} color={theme.primary} />
+          <MaterialCommunityIcons name="history" size={20} color={theme.primary} />
           <Text style={[styles.actionLabel, { color: theme.textMuted }]}>History</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/summary')}
         >
-          <MaterialCommunityIcons name="chart-bar" size={22} color={theme.primary} />
+          <MaterialCommunityIcons name="chart-bar" size={20} color={theme.primary} />
           <Text style={[styles.actionLabel, { color: theme.textMuted }]}>Summary</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: theme.surface }]}
           onPress={() => router.push('/settings')}
         >
-          <MaterialCommunityIcons name="cog-outline" size={22} color={theme.primary} />
+          <MaterialCommunityIcons name="cog-outline" size={20} color={theme.primary} />
           <Text style={[styles.actionLabel, { color: theme.textMuted }]}>Settings</Text>
         </TouchableOpacity>
       </View>
@@ -288,7 +291,7 @@ export default function HomeScreen() {
       {/* --- MONTH PICKER --- */}
       <View style={styles.monthRow}>
         <TouchableOpacity onPress={goBackMonth} hitSlop={12}>
-          <MaterialIcons name="chevron-left" size={28} color={theme.primary} />
+          <MaterialIcons name="chevron-left" size={26} color={theme.primary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={goToCurrentMonth} disabled={isCurrentMonth}>
           <Text style={[styles.monthLabel, { color: theme.text }]}>{monthLabel}</Text>
@@ -297,12 +300,12 @@ export default function HomeScreen() {
           )}
         </TouchableOpacity>
         <TouchableOpacity onPress={goForwardMonth} hitSlop={12}>
-          <MaterialIcons name="chevron-right" size={28} color={theme.primary} />
+          <MaterialIcons name="chevron-right" size={26} color={theme.primary} />
         </TouchableOpacity>
       </View>
 
       {/* --- FILTERS + SORT --- */}
-      <View style={styles.filterSortRow}>
+      <View style={styles.filterSortRow} onLayout={onFilterRowLayout}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -339,13 +342,13 @@ export default function HomeScreen() {
           style={[styles.sortBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={() => setShowSortMenu((v) => !v)}
         >
-          <MaterialCommunityIcons name="sort" size={18} color={theme.primary} />
+          <MaterialCommunityIcons name="sort" size={16} color={theme.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Sort dropdown */}
+      {/* Sort dropdown — positioned right below the filter row */}
       {showSortMenu && (
-        <View style={[styles.sortMenu, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.sortMenu, { top: sortMenuTop, backgroundColor: theme.surface, borderColor: theme.border }]}>
           {SORT_OPTIONS.map((opt) => (
             <TouchableOpacity
               key={opt}
@@ -365,7 +368,7 @@ export default function HomeScreen() {
                 {opt}
               </Text>
               {sortBy === opt && (
-                <MaterialIcons name="check" size={18} color={theme.primary} />
+                <MaterialIcons name="check" size={16} color={theme.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -379,7 +382,7 @@ export default function HomeScreen() {
         </View>
       ) : filteredBills.length === 0 ? (
         <View style={styles.center}>
-          <MaterialCommunityIcons name="receipt-text-outline" size={64} color={theme.textFaint} />
+          <MaterialCommunityIcons name="receipt-text-outline" size={56} color={theme.textFaint} />
           <Text style={[styles.emptyTitle, { color: theme.text }]}>No bills this month</Text>
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>
             {selectedFilter === 'Upcoming'
@@ -406,7 +409,7 @@ export default function HomeScreen() {
         activeOpacity={0.85}
         onPress={() => router.push('/add-bill')}
       >
-        <MaterialIcons name="add" size={28} color={theme.white} />
+        <MaterialIcons name="add" size={26} color={theme.white} />
         <Text style={[styles.fabText, { color: theme.white }]}>Add Bill</Text>
       </TouchableOpacity>
     </View>
@@ -417,90 +420,89 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 56,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 50,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
+    marginTop: 6,
   },
-  greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
-  username: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
+  username: { color: '#fff', fontSize: 20, fontWeight: '800' },
   logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 20,
-    marginBottom: -44,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 14,
+    marginBottom: -36,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  summaryLabel: { fontSize: 13, fontWeight: '600' },
-  summaryAmount: { fontSize: 32, fontWeight: '900', marginTop: 4 },
-  summaryStats: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statText: { fontSize: 13, fontWeight: '600' },
-  statDivider: { width: 1, height: 18, marginHorizontal: 14 },
+  summaryLabel: { fontSize: 12, fontWeight: '600' },
+  summaryAmount: { fontSize: 28, fontWeight: '900', marginTop: 2 },
+  summaryStats: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statText: { fontSize: 12, fontWeight: '600' },
+  statDivider: { width: 1, height: 16, marginHorizontal: 12 },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    marginTop: 56,
-    gap: 10,
+    marginTop: 44,
+    gap: 8,
   },
   actionBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  actionLabel: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  actionLabel: { fontSize: 10, fontWeight: '600', marginTop: 3 },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: 14,
-    marginBottom: 4,
+    marginTop: 12,
   },
-  monthLabel: { fontSize: 17, fontWeight: '800', textAlign: 'center' },
-  monthHint: { fontSize: 10, textAlign: 'center', marginTop: 1 },
+  monthLabel: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  monthHint: { fontSize: 9, textAlign: 'center', marginTop: 1 },
   filterSortRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
     paddingRight: 16,
   },
-  filterContent: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center' },
+  filterContent: { paddingHorizontal: 16, paddingVertical: 2, alignItems: 'center' },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    marginRight: 6,
     borderWidth: 1,
   },
-  chipText: { fontSize: 13 },
+  chipText: { fontSize: 12 },
   sortBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -508,65 +510,62 @@ const styles = StyleSheet.create({
   sortMenu: {
     position: 'absolute',
     right: 16,
-    top: undefined,
     zIndex: 100,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-    marginTop: 4,
-    alignSelf: 'flex-end',
-    marginRight: 16,
+    elevation: 8,
+    minWidth: 150,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  sortOptionText: { fontSize: 14 },
+  sortOptionText: { fontSize: 13 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 14 },
-  emptyText: { fontSize: 14, marginTop: 6, textAlign: 'center' },
-  listContent: { padding: 16 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 12 },
+  emptyText: { fontSize: 13, marginTop: 4, textAlign: 'center' },
+  listContent: { padding: 16, paddingTop: 8 },
   card: {
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  cardBody: { flex: 1, marginLeft: 14 },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  cardCategory: { fontSize: 12, marginTop: 1 },
-  cardDue: { fontSize: 13, marginTop: 4, fontWeight: '500' },
-  cardRight: { alignItems: 'flex-end', marginLeft: 8 },
-  amount: { fontSize: 16, fontWeight: '800' },
-  badge: { marginTop: 6, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
+  cardBody: { flex: 1, marginLeft: 12 },
+  cardTitle: { fontSize: 15, fontWeight: '700' },
+  cardCategory: { fontSize: 11, marginTop: 1 },
+  cardDue: { fontSize: 12, marginTop: 3, fontWeight: '500' },
+  cardRight: { alignItems: 'flex-end', marginLeft: 6 },
+  amount: { fontSize: 15, fontWeight: '800' },
+  badge: { marginTop: 5, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  badgeText: { fontSize: 10, fontWeight: '700' },
   fab: {
     position: 'absolute',
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 20,
-    height: 54,
-    borderRadius: 27,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    paddingHorizontal: 18,
+    height: 50,
+    borderRadius: 25,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  fabText: { fontWeight: '800', fontSize: 15 },
+  fabText: { fontWeight: '800', fontSize: 14 },
 });
