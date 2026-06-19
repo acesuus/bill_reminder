@@ -33,17 +33,17 @@ const BILLER_BRANDS: Record<string, BillerBrand> = {
   'Local Water District': { type: 'icon', icon: 'water', color: '#0288D1' },
   'Prime Water': { type: 'icon', icon: 'water', color: '#1976D2' },
 
-  // --- Internet (wifi icon) ---
-  'PLDT Home': { type: 'icon', icon: 'wifi', color: '#D32F2F' },
-  Globe: { type: 'icon', icon: 'wifi', color: '#6A1B9A' },
-  Converge: { type: 'icon', icon: 'wifi', color: '#E65100' },
-  Sky: { type: 'icon', icon: 'wifi', color: '#0D47A1' },
-  DITO: { type: 'icon', icon: 'wifi', color: '#1B5E20' },
+  // --- Internet (keep text marks — brand names matter) ---
+  'PLDT Home': { type: 'text', mark: 'PLDT', color: '#D32F2F' },
+  Globe: { type: 'text', mark: 'GLB', color: '#6A1B9A' },
+  Converge: { type: 'text', mark: 'CVG', color: '#E65100' },
+  Sky: { type: 'text', mark: 'SKY', color: '#0D47A1' },
+  DITO: { type: 'text', mark: 'DITO', color: '#1B5E20' },
 
-  // --- Mobile (phone icon) ---
-  Smart: { type: 'icon', icon: 'cellphone', color: '#4CAF50' },
-  TM: { type: 'icon', icon: 'cellphone', color: '#FF6F00' },
-  TNT: { type: 'icon', icon: 'cellphone', color: '#F9A825' },
+  // --- Mobile (keep text marks) ---
+  Smart: { type: 'text', mark: 'SMT', color: '#4CAF50' },
+  TM: { type: 'text', mark: 'TM', color: '#FF6F00' },
+  TNT: { type: 'text', mark: 'TNT', color: '#F9A825' },
 
   // --- Streaming (keep text marks — brand identity matters) ---
   Netflix: { type: 'text', mark: 'N', color: '#E50914' },
@@ -52,19 +52,19 @@ const BILLER_BRANDS: Record<string, BillerBrand> = {
   'Disney+': { type: 'text', mark: 'D+', color: '#113CCF' },
   'HBO Max': { type: 'text', mark: 'HBO', color: '#5822B4' },
 
-  // --- Credit Card (card icon) ---
-  BPI: { type: 'icon', icon: 'credit-card', color: '#9C1D1D' },
-  BDO: { type: 'icon', icon: 'credit-card', color: '#003B71' },
-  Metrobank: { type: 'icon', icon: 'credit-card', color: '#003399' },
-  UnionBank: { type: 'icon', icon: 'credit-card', color: '#F57C00' },
-  RCBC: { type: 'icon', icon: 'credit-card', color: '#1A237E' },
-  Citi: { type: 'icon', icon: 'credit-card', color: '#003B70' },
+  // --- Credit Card (keep text marks) ---
+  BPI: { type: 'text', mark: 'BPI', color: '#9C1D1D' },
+  BDO: { type: 'text', mark: 'BDO', color: '#003B71' },
+  Metrobank: { type: 'text', mark: 'MB', color: '#003399' },
+  UnionBank: { type: 'text', mark: 'UB', color: '#F57C00' },
+  RCBC: { type: 'text', mark: 'RC', color: '#1A237E' },
+  Citi: { type: 'text', mark: 'CITI', color: '#003B70' },
 
-  // --- Loans (cash/hand icon) ---
-  'Home Credit': { type: 'icon', icon: 'hand-coin', color: '#E53935' },
-  'Pag-IBIG Loan': { type: 'icon', icon: 'hand-coin', color: '#1565C0' },
-  'SSS Loan': { type: 'icon', icon: 'hand-coin', color: '#0D47A1' },
-  'GCash GLoan': { type: 'icon', icon: 'hand-coin', color: '#007BFF' },
+  // --- Loans (keep text marks) ---
+  'Home Credit': { type: 'text', mark: 'HC', color: '#E53935' },
+  'Pag-IBIG Loan': { type: 'text', mark: 'PAG', color: '#1565C0' },
+  'SSS Loan': { type: 'text', mark: 'SSS', color: '#0D47A1' },
+  'GCash GLoan': { type: 'text', mark: 'GC', color: '#007BFF' },
 
   // --- Insurance (shield icon) ---
   PhilHealth: { type: 'icon', icon: 'shield-check', color: '#388E3C' },
@@ -73,10 +73,10 @@ const BILLER_BRANDS: Record<string, BillerBrand> = {
   AXA: { type: 'icon', icon: 'shield-check', color: '#003B8E' },
   Manulife: { type: 'icon', icon: 'shield-check', color: '#00695C' },
 
-  // --- Government (bank icon) ---
-  SSS: { type: 'icon', icon: 'bank', color: '#0D47A1' },
-  'Pag-IBIG': { type: 'icon', icon: 'bank', color: '#1565C0' },
-  BIR: { type: 'icon', icon: 'bank', color: '#B71C1C' },
+  // --- Government (keep text marks) ---
+  SSS: { type: 'text', mark: 'SSS', color: '#0D47A1' },
+  'Pag-IBIG': { type: 'text', mark: 'PAG', color: '#1565C0' },
+  BIR: { type: 'text', mark: 'BIR', color: '#B71C1C' },
 
   // --- Rent (house icon) ---
   Apartment: { type: 'icon', icon: 'home-city', color: '#F97316' },
