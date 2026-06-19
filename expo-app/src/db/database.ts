@@ -35,6 +35,15 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           userId INTEGER NOT NULL,
           FOREIGN KEY (userId) REFERENCES users (id)
         );
+        CREATE TABLE IF NOT EXISTS payment_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          billTitle TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT 'other',
+          amount REAL NOT NULL,
+          paidAt TEXT NOT NULL,
+          userId INTEGER NOT NULL,
+          FOREIGN KEY (userId) REFERENCES users (id)
+        );
       `);
 
       // --- Migrations for databases created by earlier versions ---
@@ -160,4 +169,59 @@ export async function deleteBill(id: number): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync('DELETE FROM bills WHERE id = ?', id);
   return result.changes;
+}
+
+// --- Payment history methods ---
+
+export interface PaymentRecord {
+  id: number;
+  billTitle: string;
+  category: string;
+  amount: number;
+  paidAt: string;
+  userId: number;
+}
+
+export async function insertPaymentRecord(
+  billTitle: string,
+  category: string,
+  amount: number,
+  userId: number
+): Promise<number> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    'INSERT INTO payment_history (billTitle, category, amount, paidAt, userId) VALUES (?, ?, ?, ?, ?)',
+    billTitle,
+    category,
+    amount,
+    new Date().toISOString(),
+    userId
+  );
+  return result.lastInsertRowId;
+}
+
+export async function getPaymentHistory(userId: number): Promise<PaymentRecord[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<PaymentRecord>(
+    'SELECT * FROM payment_history WHERE userId = ? ORDER BY paidAt DESC',
+    userId
+  );
+  return rows;
+}
+
+export async function getPaymentHistoryForMonth(
+  userId: number,
+  year: number,
+  month: number
+): Promise<PaymentRecord[]> {
+  const db = await getDb();
+  const startDate = new Date(year, month, 1).toISOString();
+  const endDate = new Date(year, month + 1, 1).toISOString();
+  const rows = await db.getAllAsync<PaymentRecord>(
+    'SELECT * FROM payment_history WHERE userId = ? AND paidAt >= ? AND paidAt < ? ORDER BY paidAt DESC',
+    userId,
+    startDate,
+    endDate
+  );
+  return rows;
 }

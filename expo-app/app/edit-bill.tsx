@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { deleteBill, getBillById, insertBill, updateBill } from '@/db/database';
+import { deleteBill, getBillById, insertBill, insertPaymentRecord, updateBill } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
@@ -87,6 +87,16 @@ export default function EditBillScreen() {
         recurrence,
       };
       await updateBill(updatedBill);
+
+      // Record payment in history when newly marked as paid.
+      if (isPaid && !bill.isPaid) {
+        await insertPaymentRecord(
+          updatedBill.title,
+          updatedBill.category,
+          updatedBill.amount,
+          updatedBill.userId
+        );
+      }
 
       // If marking as paid and it's a recurring bill, auto-create next month's entry.
       if (isPaid && recurrence === 'monthly' && !bill.isPaid) {
