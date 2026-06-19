@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,7 +15,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -26,6 +24,7 @@ import { saveImageLocally } from '@/utils/images';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
 import BillerLogo from '@/components/BillerLogo';
+import DatePicker from '@/components/DatePicker';
 import { colors, CURRENCY_SYMBOL } from '@/theme/colors';
 import { formatLongDate } from '@/utils/date';
 
@@ -63,9 +62,8 @@ export default function AddBillScreen() {
     }
   };
 
-  const onDateChange = (_event: unknown, date?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (date) setSelectedDate(date);
+  const onDateChange = (date: Date) => {
+    setSelectedDate(date);
   };
 
   const validate = () => {
@@ -191,12 +189,11 @@ export default function AddBillScreen() {
           <MaterialIcons name="chevron-right" size={22} color={colors.textFaint} />
         </TouchableOpacity>
         {showDatePicker && (
-          <DateTimePicker
+          <DatePicker
             value={selectedDate}
-            mode="date"
-            display="default"
-            minimumDate={new Date()}
             onChange={onDateChange}
+            visible={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
           />
         )}
 

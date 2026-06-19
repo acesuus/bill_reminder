@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -14,13 +13,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { deleteBill, getBillById, insertBill, insertPaymentRecord, updateBill } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
 import CategoryGrid from '@/components/CategoryGrid';
+import DatePicker from '@/components/DatePicker';
 import { colors, CURRENCY_SYMBOL } from '@/theme/colors';
 import { formatLongDate } from '@/utils/date';
 
@@ -59,9 +58,8 @@ export default function EditBillScreen() {
 
   const cat = useMemo(() => getCategory(category), [category]);
 
-  const onDateChange = (_event: unknown, date?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (date) setSelectedDate(date);
+  const onDateChange = (date: Date) => {
+    setSelectedDate(date);
   };
 
   const validate = () => {
@@ -242,7 +240,12 @@ export default function EditBillScreen() {
           <MaterialIcons name="chevron-right" size={22} color={colors.textFaint} />
         </TouchableOpacity>
         {showDatePicker && (
-          <DateTimePicker value={selectedDate} mode="date" display="default" onChange={onDateChange} />
+          <DatePicker
+            value={selectedDate}
+            onChange={onDateChange}
+            visible={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
+          />
         )}
 
         {/* --- RECURRING --- */}
