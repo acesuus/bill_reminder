@@ -1,4 +1,4 @@
-// Dashboard — gradient header, summary card, status filters, bill cards with logos.
+// Dashboard — gradient header, summary card, sort + filters, bill cards.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -26,8 +26,11 @@ import { relativeDueDate, formatCurrency } from '@/utils/format';
 import { formatShortDate } from '@/utils/date';
 import { getBillStatus, getStatusStyle } from '@/utils/status';
 
-const FILTERS = ['All', 'Unpaid', 'Overdue', 'Paid'] as const;
+const FILTERS = ['Upcoming', 'Overdue', 'Paid', 'All'] as const;
 type Filter = (typeof FILTERS)[number];
+
+const SORT_OPTIONS = ['Due Date', 'Amount', 'Name'] as const;
+type SortOption = (typeof SORT_OPTIONS)[number];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -35,7 +38,9 @@ export default function HomeScreen() {
   const { currentUser, signOut } = useAuth();
   const { theme } = useTheme();
 
-  const [selectedFilter, setSelectedFilter] = useState<Filter>('All');
+  const [selectedFilter, setSelectedFilter] = useState<Filter>('Upcoming');
+  const [sortBy, setSortBy] = useState<SortOption>('Due Date');
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,21 +72,55 @@ export default function HomeScreen() {
     return { totalUnpaid, unpaidCount: unpaid.length, overdue };
   }, [allBills, now]);
 
+  // Smart filtering: "Upcoming" shows only the nearest unpaid entry per
+  // recurring bill so duplicates don't clutter the list.
   const filteredBills = useMemo(() => {
-    return allBills.filter((bill) => {
-      const overdue = !bill.isPaid && new Date(bill.dueDate).getTime() < now;
-      switch (selectedFilter) {
-        case 'Unpaid':
-          return !bill.isPaid;
-        case 'Overdue':
-          return overdue;
-        case 'Paid':
-          return bill.isPaid;
+    let bills: Bill[];
+
+    switch (selectedFilter) {
+      case 'Upcoming': {
+        // Only unpaid bills. For recurring ones, show only the earliest upcoming.
+        const unpaid = allBills.filter((b) => !b.isPaid);
+        const seen = new Map<string, Bill>();
+        for (const bill of unpaid) {
+          if (bill.recurrence === 'monthly') {
+            const key = `${bill.title}|${bill.category}|${bill.userId}`;
+            const existing = seen.get(key);
+            if (!existing || new Date(bill.dueDate).getTime() < new Date(existing.dueDate).getTime()) {
+              seen.set(key, bill);
+            }
+          } else {
+            // Non-recurring: always show
+            seen.set(`single_${bill.id}`, bill);
+          }
+        }
+        bills = Array.from(seen.values());
+        break;
+      }
+      case 'Overdue':
+        bills = allBills.filter((b) => !b.isPaid && new Date(b.dueDate).getTime() < now);
+        break;
+      case 'Paid':
+        bills = allBills.filter((b) => b.isPaid);
+        break;
+      default:
+        bills = [...allBills];
+    }
+
+    // Sort
+    bills.sort((a, b) => {
+      switch (sortBy) {
+        case 'Amount':
+          return b.amount - a.amount;
+        case 'Name':
+          return a.title.localeCompare(b.title);
         default:
-          return true;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }
     });
-  }, [allBills, selectedFilter, now]);
+
+    return bills;
+  }, [allBills, selectedFilter, sortBy, now]);
 
   const handleLogout = async () => {
     await signOut();
@@ -105,7 +144,7 @@ export default function HomeScreen() {
           </Text>
           <Text style={[styles.cardCategory, { color: theme.textFaint }]}>
             {cat.label}
-            {item.recurrence === 'monthly' ? '  \u00B7  Monthly' : ''}
+            {item.recurrence === 'monthly' ? ' \u00B7 Recurring' : ''}
           </Text>
           <Text
             style={[
@@ -130,7 +169,6 @@ export default function HomeScreen() {
     );
   };
 
-  // Bottom padding: nav bar safe area + FAB height + extra breathing room
   const fabBottom = Math.max(insets.bottom, 16) + 16;
 
   return (
@@ -201,8 +239,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* --- FILTERS --- */}
-      <View style={styles.filterContainer}>
+      {/* --- FILTERS + SORT --- */}
+      <View style={styles.filterSortRow}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -218,8 +256,8 @@ export default function HomeScreen() {
                 style={[
                   styles.chip,
                   isSelected
-                    ? [styles.chipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }]
-                    : [styles.chipUnselected, { backgroundColor: theme.surface, borderColor: theme.border }],
+                    ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                    : { backgroundColor: theme.surface, borderColor: theme.border },
                 ]}
               >
                 <Text
@@ -235,7 +273,42 @@ export default function HomeScreen() {
             );
           })}
         </ScrollView>
+        <TouchableOpacity
+          style={[styles.sortBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={() => setShowSortMenu((v) => !v)}
+        >
+          <MaterialCommunityIcons name="sort" size={18} color={theme.primary} />
+        </TouchableOpacity>
       </View>
+
+      {/* Sort dropdown */}
+      {showSortMenu && (
+        <View style={[styles.sortMenu, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {SORT_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt}
+              style={styles.sortOption}
+              onPress={() => {
+                setSortBy(opt);
+                setShowSortMenu(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.sortOptionText,
+                  { color: sortBy === opt ? theme.primary : theme.text },
+                  sortBy === opt && { fontWeight: '700' },
+                ]}
+              >
+                {opt}
+              </Text>
+              {sortBy === opt && (
+                <MaterialIcons name="check" size={18} color={theme.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* --- BILLS LIST --- */}
       {isLoading ? (
@@ -247,7 +320,7 @@ export default function HomeScreen() {
           <MaterialCommunityIcons name="receipt-text-outline" size={64} color={theme.textFaint} />
           <Text style={[styles.emptyTitle, { color: theme.text }]}>No bills here yet</Text>
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-            {selectedFilter === 'All'
+            {selectedFilter === 'Upcoming'
               ? 'Tap the + button to add your first bill.'
               : `You have no "${selectedFilter}" bills.`}
           </Text>
@@ -265,7 +338,7 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* --- FAB (respects safe area so it never overlaps nav buttons) --- */}
+      {/* --- FAB --- */}
       <TouchableOpacity
         style={[styles.fab, { bottom: fabBottom, backgroundColor: theme.primary }]}
         activeOpacity={0.85}
@@ -279,7 +352,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 56,
@@ -293,7 +366,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   greeting: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
-  username: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  username: { color: '#fff', fontSize: 22, fontWeight: '800' },
   logoutBtn: {
     width: 40,
     height: 40,
@@ -303,28 +376,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   summaryCard: {
-    backgroundColor: colors.white,
     borderRadius: 20,
     padding: 20,
     marginTop: 20,
     marginBottom: -44,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
   },
-  summaryLabel: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
-  summaryAmount: { color: colors.text, fontSize: 32, fontWeight: '900', marginTop: 4 },
-  summaryStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
-  },
+  summaryLabel: { fontSize: 13, fontWeight: '600' },
+  summaryAmount: { fontSize: 32, fontWeight: '900', marginTop: 4 },
+  summaryStats: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
-  statDivider: { width: 1, height: 18, backgroundColor: colors.border, marginHorizontal: 14 },
-  filterContainer: { marginTop: 12 },
+  statText: { fontSize: 13, fontWeight: '600' },
+  statDivider: { width: 1, height: 18, marginHorizontal: 14 },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -343,46 +410,77 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   actionLabel: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  filterSortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingRight: 16,
+  },
   filterContent: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center' },
   chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
   },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipUnselected: { backgroundColor: colors.white, borderColor: colors.border },
   chipText: { fontSize: 13 },
+  sortBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  sortMenu: {
+    position: 'absolute',
+    right: 16,
+    top: undefined,
+    zIndex: 100,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+    marginRight: 16,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  sortOptionText: { fontSize: 14 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyTitle: { color: colors.text, fontSize: 17, fontWeight: '700', marginTop: 14 },
-  emptyText: { color: colors.textMuted, fontSize: 14, marginTop: 6, textAlign: 'center' },
+  emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 14 },
+  emptyText: { fontSize: 14, marginTop: 6, textAlign: 'center' },
   listContent: { padding: 16 },
   card: {
-    backgroundColor: colors.white,
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
   cardBody: { flex: 1, marginLeft: 14 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  cardCategory: { fontSize: 12, color: colors.textFaint, marginTop: 1 },
-  cardDue: { fontSize: 13, color: colors.textMuted, marginTop: 4, fontWeight: '500' },
+  cardTitle: { fontSize: 16, fontWeight: '700' },
+  cardCategory: { fontSize: 12, marginTop: 1 },
+  cardDue: { fontSize: 13, marginTop: 4, fontWeight: '500' },
   cardRight: { alignItems: 'flex-end', marginLeft: 8 },
-  amount: { fontSize: 16, fontWeight: '800', color: colors.text },
-  badge: {
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
+  amount: { fontSize: 16, fontWeight: '800' },
+  badge: { marginTop: 6, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   fab: {
     position: 'absolute',
@@ -393,12 +491,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     height: 54,
     borderRadius: 27,
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
     shadowOpacity: 0.4,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 5 },
     elevation: 6,
   },
-  fabText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  fabText: { fontWeight: '800', fontSize: 15 },
 });
