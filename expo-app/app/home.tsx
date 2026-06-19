@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { getBillsByUserId } from '@/db/database';
 import { Bill } from '@/types/bill';
 import { getCategory } from '@/constants/categories';
@@ -32,6 +33,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { currentUser, signOut } = useAuth();
+  const { theme } = useTheme();
 
   const [selectedFilter, setSelectedFilter] = useState<Filter>('All');
   const [allBills, setAllBills] = useState<Bill[]>([]);
@@ -93,30 +95,31 @@ export default function HomeScreen() {
     return (
       <TouchableOpacity
         activeOpacity={0.8}
-        style={styles.card}
+        style={[styles.card, { backgroundColor: theme.surface }]}
         onPress={() => router.push({ pathname: '/edit-bill', params: { id: String(item.id) } })}
       >
         <BillerLogo name={item.title} size={48} />
         <View style={styles.cardBody}>
-          <Text style={styles.cardTitle} numberOfLines={1}>
+          <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.cardCategory}>
+          <Text style={[styles.cardCategory, { color: theme.textFaint }]}>
             {cat.label}
             {item.recurrence === 'monthly' ? '  \u00B7  Monthly' : ''}
           </Text>
           <Text
             style={[
               styles.cardDue,
-              status === 'overdue' && { color: colors.danger },
-              status === 'dueSoon' && { color: colors.warning },
+              { color: theme.textMuted },
+              status === 'overdue' && { color: theme.danger },
+              status === 'dueSoon' && { color: theme.warning },
             ]}
           >
             {formatShortDate(item.dueDate)} {'\u00B7'} {relativeDueDate(item.dueDate, item.isPaid)}
           </Text>
         </View>
         <View style={styles.cardRight}>
-          <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
+          <Text style={[styles.amount, { color: theme.text }]}>{formatCurrency(item.amount)}</Text>
           <View style={[styles.badge, { backgroundColor: statusStyle.surface }]}>
             <Text style={[styles.badgeText, { color: statusStyle.color }]}>
               {statusStyle.label}
@@ -131,10 +134,10 @@ export default function HomeScreen() {
   const fabBottom = Math.max(insets.bottom, 16) + 16;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: theme.bg }]}>
       {/* --- GRADIENT HEADER --- */}
       <LinearGradient
-        colors={[colors.headerGradientStart, colors.headerGradientEnd]}
+        colors={[theme.headerGradientStart, theme.headerGradientEnd]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -151,20 +154,20 @@ export default function HomeScreen() {
           </View>
 
           {/* Summary card */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Unpaid</Text>
-            <Text style={styles.summaryAmount}>{formatCurrency(summary.totalUnpaid)}</Text>
+          <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Total Unpaid</Text>
+            <Text style={[styles.summaryAmount, { color: theme.text }]}>{formatCurrency(summary.totalUnpaid)}</Text>
             <View style={styles.summaryStats}>
               <View style={styles.stat}>
-                <MaterialIcons name="receipt-long" size={18} color={colors.primary} />
-                <Text style={styles.statText}>
+                <MaterialIcons name="receipt-long" size={18} color={theme.primary} />
+                <Text style={[styles.statText, { color: theme.textMuted }]}>
                   {summary.unpaidCount} {summary.unpaidCount === 1 ? 'bill' : 'bills'} due
                 </Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
               <View style={styles.stat}>
-                <MaterialIcons name="warning-amber" size={18} color={colors.danger} />
-                <Text style={[styles.statText, summary.overdue > 0 && { color: colors.danger }]}>
+                <MaterialIcons name="warning-amber" size={18} color={theme.danger} />
+                <Text style={[styles.statText, summary.overdue > 0 && { color: theme.danger }]}>
                   {summary.overdue} overdue
                 </Text>
               </View>
@@ -172,6 +175,31 @@ export default function HomeScreen() {
           </View>
         </SafeAreaView>
       </LinearGradient>
+
+      {/* --- QUICK ACTIONS --- */}
+      <View style={styles.actionsRow}>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+          onPress={() => router.push('/history')}
+        >
+          <MaterialCommunityIcons name="history" size={22} color={theme.primary} />
+          <Text style={[styles.actionLabel, { color: theme.textMuted }]}>History</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+          onPress={() => router.push('/summary')}
+        >
+          <MaterialCommunityIcons name="chart-bar" size={22} color={theme.primary} />
+          <Text style={[styles.actionLabel, { color: theme.textMuted }]}>Summary</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+          onPress={() => router.push('/settings')}
+        >
+          <MaterialCommunityIcons name="cog-outline" size={22} color={theme.primary} />
+          <Text style={[styles.actionLabel, { color: theme.textMuted }]}>Settings</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* --- FILTERS --- */}
       <View style={styles.filterContainer}>
@@ -187,12 +215,17 @@ export default function HomeScreen() {
                 key={filter}
                 activeOpacity={0.8}
                 onPress={() => setSelectedFilter(filter)}
-                style={[styles.chip, isSelected ? styles.chipSelected : styles.chipUnselected]}
+                style={[
+                  styles.chip,
+                  isSelected
+                    ? [styles.chipSelected, { backgroundColor: theme.primary, borderColor: theme.primary }]
+                    : [styles.chipUnselected, { backgroundColor: theme.surface, borderColor: theme.border }],
+                ]}
               >
                 <Text
                   style={[
                     styles.chipText,
-                    { color: isSelected ? colors.white : colors.primary },
+                    { color: isSelected ? theme.white : theme.primary },
                     isSelected && { fontWeight: '700' },
                   ]}
                 >
@@ -207,13 +240,13 @@ export default function HomeScreen() {
       {/* --- BILLS LIST --- */}
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : filteredBills.length === 0 ? (
         <View style={styles.center}>
-          <MaterialCommunityIcons name="receipt-text-outline" size={64} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>No bills here yet</Text>
-          <Text style={styles.emptyText}>
+          <MaterialCommunityIcons name="receipt-text-outline" size={64} color={theme.textFaint} />
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No bills here yet</Text>
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>
             {selectedFilter === 'All'
               ? 'Tap the + button to add your first bill.'
               : `You have no "${selectedFilter}" bills.`}
@@ -227,19 +260,19 @@ export default function HomeScreen() {
           contentContainerStyle={[styles.listContent, { paddingBottom: fabBottom + 60 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={loadBills} tintColor={colors.primary} />
+            <RefreshControl refreshing={isLoading} onRefresh={loadBills} tintColor={theme.primary} />
           }
         />
       )}
 
       {/* --- FAB (respects safe area so it never overlaps nav buttons) --- */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: fabBottom }]}
+        style={[styles.fab, { bottom: fabBottom, backgroundColor: theme.primary }]}
         activeOpacity={0.85}
         onPress={() => router.push('/add-bill')}
       >
-        <MaterialIcons name="add" size={28} color={colors.white} />
-        <Text style={styles.fabText}>Add Bill</Text>
+        <MaterialIcons name="add" size={28} color={theme.white} />
+        <Text style={[styles.fabText, { color: theme.white }]}>Add Bill</Text>
       </TouchableOpacity>
     </View>
   );
@@ -291,7 +324,25 @@ const styles = StyleSheet.create({
   stat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statText: { color: colors.textMuted, fontSize: 13, fontWeight: '600' },
   statDivider: { width: 1, height: 18, backgroundColor: colors.border, marginHorizontal: 14 },
-  filterContainer: { marginTop: 56 },
+  filterContainer: { marginTop: 12 },
+  actionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 56,
+    gap: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  actionLabel: { fontSize: 11, fontWeight: '600', marginTop: 4 },
   filterContent: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center' },
   chip: {
     paddingHorizontal: 18,
