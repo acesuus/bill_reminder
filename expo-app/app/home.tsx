@@ -1,4 +1,4 @@
-// Dashboard — gradient header, summary card, sort + filters, bill cards.
+// Dashboard — month picker, gradient header, summary card, sort + filters, bill cards.
 
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -38,11 +38,46 @@ export default function HomeScreen() {
   const { currentUser, signOut } = useAuth();
   const { theme } = useTheme();
 
+  // Month picker — defaults to current month
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth()); // 0-indexed
+
   const [selectedFilter, setSelectedFilter] = useState<Filter>('Upcoming');
   const [sortBy, setSortBy] = useState<SortOption>('Due Date');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [allBills, setAllBills] = useState<Bill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const goBackMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  const goForwardMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const goToCurrentMonth = () => {
+    setViewYear(today.getFullYear());
+    setViewMonth(today.getMonth());
+  };
+
+  const isCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
 
   const loadBills = useCallback(async () => {
     setIsLoading(true);
@@ -65,22 +100,30 @@ export default function HomeScreen() {
 
   const now = Date.now();
 
+  // Filter bills to the selected month first
+  const monthBills = useMemo(() => {
+    return allBills.filter((b) => {
+      const d = new Date(b.dueDate);
+      return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+    });
+  }, [allBills, viewYear, viewMonth]);
+
+  // Summary scoped to the selected month's unpaid bills
   const summary = useMemo(() => {
-    const unpaid = allBills.filter((b) => !b.isPaid);
+    const unpaid = monthBills.filter((b) => !b.isPaid);
     const totalUnpaid = unpaid.reduce((sum, b) => sum + b.amount, 0);
     const overdue = unpaid.filter((b) => new Date(b.dueDate).getTime() < now).length;
     return { totalUnpaid, unpaidCount: unpaid.length, overdue };
-  }, [allBills, now]);
+  }, [monthBills, now]);
 
-  // Smart filtering: "Upcoming" shows only the nearest unpaid entry per
-  // recurring bill so duplicates don't clutter the list.
+  // Status + dedup filtering within the selected month
   const filteredBills = useMemo(() => {
     let bills: Bill[];
 
     switch (selectedFilter) {
       case 'Upcoming': {
-        // Only unpaid bills. For recurring ones, show only the earliest upcoming.
-        const unpaid = allBills.filter((b) => !b.isPaid);
+        const unpaid = monthBills.filter((b) => !b.isPaid);
+        // Deduplicate recurring: show only the earliest upcoming per group
         const seen = new Map<string, Bill>();
         for (const bill of unpaid) {
           if (bill.recurrence === 'monthly') {
@@ -90,7 +133,6 @@ export default function HomeScreen() {
               seen.set(key, bill);
             }
           } else {
-            // Non-recurring: always show
             seen.set(`single_${bill.id}`, bill);
           }
         }
@@ -98,13 +140,13 @@ export default function HomeScreen() {
         break;
       }
       case 'Overdue':
-        bills = allBills.filter((b) => !b.isPaid && new Date(b.dueDate).getTime() < now);
+        bills = monthBills.filter((b) => !b.isPaid && new Date(b.dueDate).getTime() < now);
         break;
       case 'Paid':
-        bills = allBills.filter((b) => b.isPaid);
+        bills = monthBills.filter((b) => b.isPaid);
         break;
       default:
-        bills = [...allBills];
+        bills = [...monthBills];
     }
 
     // Sort
@@ -120,7 +162,7 @@ export default function HomeScreen() {
     });
 
     return bills;
-  }, [allBills, selectedFilter, sortBy, now]);
+  }, [monthBills, selectedFilter, sortBy, now]);
 
   const handleLogout = async () => {
     await signOut();
@@ -187,14 +229,18 @@ export default function HomeScreen() {
               <Text style={styles.username}>{currentUser?.username ?? 'there'}</Text>
             </View>
             <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} hitSlop={8}>
-              <MaterialIcons name="logout" size={20} color={colors.white} />
+              <MaterialIcons name="logout" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
 
           {/* Summary card */}
           <View style={[styles.summaryCard, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>Total Unpaid</Text>
-            <Text style={[styles.summaryAmount, { color: theme.text }]}>{formatCurrency(summary.totalUnpaid)}</Text>
+            <Text style={[styles.summaryLabel, { color: theme.textMuted }]}>
+              Unpaid this month
+            </Text>
+            <Text style={[styles.summaryAmount, { color: theme.text }]}>
+              {formatCurrency(summary.totalUnpaid)}
+            </Text>
             <View style={styles.summaryStats}>
               <View style={styles.stat}>
                 <MaterialIcons name="receipt-long" size={18} color={theme.primary} />
@@ -236,6 +282,22 @@ export default function HomeScreen() {
         >
           <MaterialCommunityIcons name="cog-outline" size={22} color={theme.primary} />
           <Text style={[styles.actionLabel, { color: theme.textMuted }]}>Settings</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* --- MONTH PICKER --- */}
+      <View style={styles.monthRow}>
+        <TouchableOpacity onPress={goBackMonth} hitSlop={12}>
+          <MaterialIcons name="chevron-left" size={28} color={theme.primary} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToCurrentMonth} disabled={isCurrentMonth}>
+          <Text style={[styles.monthLabel, { color: theme.text }]}>{monthLabel}</Text>
+          {!isCurrentMonth && (
+            <Text style={[styles.monthHint, { color: theme.textFaint }]}>Tap for today</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goForwardMonth} hitSlop={12}>
+          <MaterialIcons name="chevron-right" size={28} color={theme.primary} />
         </TouchableOpacity>
       </View>
 
@@ -318,11 +380,11 @@ export default function HomeScreen() {
       ) : filteredBills.length === 0 ? (
         <View style={styles.center}>
           <MaterialCommunityIcons name="receipt-text-outline" size={64} color={theme.textFaint} />
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>No bills here yet</Text>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>No bills this month</Text>
           <Text style={[styles.emptyText, { color: theme.textMuted }]}>
             {selectedFilter === 'Upcoming'
-              ? 'Tap the + button to add your first bill.'
-              : `You have no "${selectedFilter}" bills.`}
+              ? 'No upcoming bills for this month. Tap + to add one.'
+              : `No "${selectedFilter}" bills for ${monthLabel}.`}
           </Text>
         </View>
       ) : (
@@ -410,10 +472,20 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   actionLabel: { fontSize: 11, fontWeight: '600', marginTop: 4 },
+  monthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  monthLabel: { fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  monthHint: { fontSize: 10, textAlign: 'center', marginTop: 1 },
   filterSortRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 6,
     paddingRight: 16,
   },
   filterContent: { paddingHorizontal: 16, paddingVertical: 4, alignItems: 'center' },
